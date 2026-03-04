@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control-Max | Sistema de Gestión Integral</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <!-- Iconos FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Librería para Gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+    <!-- PANTALLA DE LOGIN -->
+    <div id="login-screen" class="modal" style="display: flex; z-index: 4000;">
+        <div class="modal-content" style="max-width: 400px; text-align: center;">
+            <i class="fas fa-shield-alt" style="font-size: 3rem; color: var(--primary); margin-bottom: 15px;"></i>
+            <h2>Control-Max</h2>
+            <p>Inicie sesión para acceder</p><br>
+            <form id="login-form">
+                <div class="form-group">
+                    <label>Usuario:</label>
+                    <input type="text" id="login-username" required placeholder="admin">
+                </div>
+                <div class="form-group">
+                    <label>Contraseña:</label>
+                    <input type="password" id="login-password" required placeholder="admin">
+                </div><br>
+                <button type="submit" class="btn-primary" style="width: 100%;">Ingresar</button>
+            </form>
+            <small style="display:block; margin-top:15px; color:#888;">admin / admin</small>
+        </div>
+    </div>
+
+    <!-- SIDEBAR (Navegación Lateral) -->
+    <nav class="sidebar" id="main-sidebar" style="display: none;">
+        <div class="logo">
+            <h1>Control-Max</h1>
+            <small id="display-user-role" style="color: var(--warning); font-weight: bold;"></small>
+        </div>
+        <button class="nav-btn" onclick="showSection('inventory')"><i class="fas fa-boxes"></i> <span>Inventario</span></button>
+        <button class="nav-btn" onclick="showSection('sales')"><i class="fas fa-shopping-cart"></i> <span>Ventas</span></button>
+        <button class="nav-btn" onclick="showSection('purchases')"><i class="fas fa-truck-loading"></i> <span>Compras</span></button>
+        <button class="nav-btn" onclick="showSection('balance')"><i class="fas fa-university"></i> <span>Balance</span></button>
+        <button class="nav-btn" onclick="showSection('accounts')"><i class="fas fa-users-cog"></i> <span>Cuentas Ctes.</span></button>
+        <button class="nav-btn" onclick="showSection('partners')"><i class="fas fa-handshake"></i> <span>Socios</span></button>
+        <button class="nav-btn" onclick="showSection('reports')"><i class="fas fa-chart-line"></i> <span>Reportes</span></button>
+        <button class="nav-btn" onclick="showSection('history')"><i class="fas fa-history"></i> <span>Historial</span></button>
+        <button class="nav-btn admin-only" onclick="showSection('admin')"><i class="fas fa-user-shield"></i> <span>ADMIN</span></button>
+
+        <div style="margin-top: auto; padding: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
+            <button class="btn-secondary" onclick="logout()" style="width: 100%;">
+                <i class="fas fa-sign-out-alt"></i> Salir
+            </button>
+        </div>
+    </nav>
+
+    <!-- ÁREA DE CONTENIDO PRINCIPAL -->
+    <main id="app" style="display: none;">
+        
+        <!-- SECCIÓN: INVENTARIO -->
+        <section id="inventory-section">
+            <header class="section-header">
+                <h2>Gestión de Inventario</h2>
+                <div class="sub-nav">
+                    <button class="sub-btn active" onclick="showSubTab('listado')">Listado</button>
+                    <button class="sub-btn" onclick="showSubTab('nuevo-prod')">Nuevo Producto</button>
+                </div>
+            </header>
+            <div id="sub-listado" class="sub-content">
+                <div class="search-container">
+                    <input type="text" id="search-input" placeholder="Buscar..." onkeyup="filterProducts()">
+                    <select id="filter-type" onchange="filterProducts()"><option value="rubro">Rubro</option><option value="marca">Marca</option></select>
+                </div>
+                <div class="table-wrapper"><table><thead><tr><th>Código</th><th>Nombre</th><th>Stock</th><th>P. Venta</th><th>Acciones</th></tr></thead><tbody id="inventory-body"></tbody></table></div>
+            </div>
+            <div id="sub-nuevo-prod" class="sub-content" style="display:none;">
+                <div class="form-container">
+                    <form id="product-form">
+                        <input type="hidden" id="edit-id">
+                        <div class="form-row">
+                            <div class="form-group"><label>*Nombre:</label><input type="text" id="prod-name" required></div>
+                            <div class="form-group"><label>*Código:</label><input type="text" id="prod-code" required></div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group"><label>*Rubro:</label><input type="text" id="prod-rubro" list="list-rubros" required><datalist id="list-rubros"></datalist></div>
+                            <div class="form-group"><label>*Marca:</label><input type="text" id="prod-marca" list="list-marcas" required><datalist id="list-marcas"></datalist></div>
+                            <div class="form-group"><label>Proveedor:</label><select id="prod-prov-select"></select></div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group"><label>P. Costo:</label><input type="number" id="prod-cost" step="0.01" oninput="calcNewProdTotal()"></div>
+                            <div class="form-group"><label>*P. Venta:</label><input type="number" id="prod-price" step="0.01" required></div>
+                            <div class="form-group"><label>*Cant:</label><input type="number" id="prod-stock-init" oninput="calcNewProdTotal()" required></div>
+                            <div class="form-group"><label>Total:</label><input type="text" id="prod-total-buy" disabled></div>
+                        </div>
+                        <div class="payment-section" style="border: 1px solid var(--accent); padding: 15px; border-radius: 8px; margin-top: 10px;">
+                            <h4>Distribución del Pago</h4>
+                            <div class="form-row">
+                                <div class="form-group"><label>Efectivo:</label><input type="number" id="pay-inv-cash" value="0"></div>
+                                <div class="form-group"><label>Banco:</label><input type="number" id="pay-inv-bank" value="0"></div>
+                                <div class="form-group"><label>Cta Cte Prov:</label><input type="number" id="pay-inv-ctacte" value="0"></div>
+                                <div class="form-group"><label>Socio:</label><input type="number" id="pay-inv-partner" value="0"><select id="pay-inv-partner-select" style="margin-top:5px;"></select></div>
+                            </div>
+                        </div><br>
+                        <button type="submit" id="btn-save-prod" class="btn-primary" style="width:100%">Guardar Producto</button>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECCIÓN: VENTAS -->
+        <section id="sales-section" style="display:none;">
+            <header class="section-header"><h2>Ventas</h2></header>
+            <div class="sales-grid">
+                <div class="sales-input-card">
+                    <div class="form-group"><label>Producto:</label><select id="sales-product-select"></select></div>
+                    <div class="form-group"><label>Cantidad:</label><input type="number" id="sales-qty" value="1" min="1"></div>
+                    <button class="btn-primary" onclick="addToCart()">Agregar al Carrito</button>
+                </div>
+                <div class="cart-card">
+                    <table class="mini-table"><thead><tr><th>Prod.</th><th>Cant.</th><th>Subtotal</th><th></th></tr></thead><tbody id="cart-body"></tbody></table>
+                    <div class="cart-footer">
+                        <h3>Total: $<span id="cart-total">0,00</span></h3>
+                        <div class="payment-section">
+                            <label>Cliente:</label>
+                            <input type="text" id="sales-client-search" list="list-clients" placeholder="Nombre cliente..."><datalist id="list-clients"></datalist>
+                            <label style="margin-top:10px; display:block;">Pago:</label>
+                            <select id="payment-method" onchange="toggleCombinedPayment()">
+                                <option value="cash">Efectivo</option><option value="bank">Banco</option><option value="ctacte">Cta Cte</option><option value="combined">Combinado</option>
+                            </select>
+                            <div id="combined-inputs" class="combined-box" style="display:none; flex-direction:column; gap:5px; margin-top:10px;">
+                                <input type="number" id="pay-cash" placeholder="Efec."><input type="number" id="pay-bank" placeholder="Banco"><input type="number" id="pay-ctacte" placeholder="Cta Cte">
+                            </div>
+                        </div>
+                        <button class="btn-confirm" onclick="checkout()">Finalizar Venta</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECCIÓN: COMPRAS -->
+        <section id="purchases-section" style="display:none;">
+            <header class="section-header"><h2>Compras</h2>
+                <div class="sub-nav">
+                    <button class="sub-btn active" onclick="showSubTabPurchase('individual')">Individual</button>
+                    <button class="sub-btn" onclick="showSubTabPurchase('grande')">Grande</button>
+                </div>
+            </header>
+            <div id="sub-individual" class="purchase-content">
+                <div class="form-container">
+                    <div class="form-row">
+                        <div class="form-group"><label>Producto:</label><input type="text" id="p-ind-search" list="prod-list" onchange="autoFillIndividual()"><datalist id="prod-list"></datalist></div>
+                        <div class="form-group"><label>Cant:</label><input type="number" id="p-ind-qty" value="1"></div>
+                        <div class="form-group"><label>Costo U:</label><input type="number" id="p-ind-cost" step="0.01"></div>
+                        <div class="form-group"><label>Venta U:</label><input type="number" id="p-ind-price" step="0.01"></div>
+                    </div>
+                    <button class="btn-primary" onclick="saveIndividualPurchase()">Registrar</button>
+                </div>
+            </div>
+            <div id="sub-grande" class="purchase-content" style="display:none;">
+                <div class="table-wrapper"><table><thead><tr><th>Producto</th><th>Cant.</th><th>Costo</th><th>Venta</th><th></th></tr></thead><tbody id="bulk-body"></tbody></table><button class="btn-secondary" onclick="addBulkRow()">+ Fila</button></div>
+                <h3>Total: $<span id="bulk-total-display">0.00</span></h3>
+                <button class="btn-primary" onclick="saveBulkPurchase()">Finalizar</button>
+            </div>
+        </section>
+
+        <!-- SECCIÓN: BALANCE -->
+        <section id="balance-section" style="display:none;">
+            <header class="section-header"><h2>Balance</h2>
+                <div class="sub-nav">
+                    <button class="sub-btn active" onclick="showSubTabBalance('saldo')">Saldos</button>
+                    <button class="sub-btn" onclick="showSubTabBalance('gastos')">Gastos</button>
+                </div>
+            </header>
+            <div id="sub-saldo" class="balance-content">
+                <div class="balance-grid">
+                    <div class="balance-card"><h3>Efectivo</h3><p id="cash-amount">$ 0,00</p></div>
+                    <div class="balance-card"><h3>Banco</h3><p id="bank-amount">$ 0,00</p></div>
+                    <div class="balance-card total"><h3>Total</h3><p id="total-amount">$ 0,00</p></div>
+                </div>
+                <div class="form-container" style="margin-top:20px;">
+                    <h3>Transferencia</h3>
+                    <div class="form-row">
+                        <div class="form-group"><label>Desde:</label><select id="transfer-origin"><option value="cash">Efectivo</option><option value="bank">Banco</option></select></div>
+                        <div class="form-group"><label>Monto:</label><input type="number" id="transfer-amount" step="0.01"></div>
+                    </div>
+                    <button class="btn-primary" onclick="makeTransfer()">Confirmar</button>
+                </div>
+            </div>
+            <div id="sub-gastos" class="balance-content" style="display:none;">
+                <div class="form-container">
+                    <form id="expense-form">
+                        <div class="form-row">
+                            <div class="form-group"><label>Descripción:</label><input type="text" id="exp-desc" required></div>
+                            <div class="form-group"><label>Monto:</label><input type="number" id="exp-amount" required></div>
+                            <div class="form-group"><label>Caja:</label><select id="exp-method"><option value="cash">Efectivo</option><option value="bank">Banco</option></select></div>
+                        </div>
+                        <button type="submit" class="btn-primary">Grabar</button>
+                    </form>
+                </div>
+                <div class="table-wrapper"><table id="expenses-table"><thead><tr><th>Fecha</th><th>Desc</th><th>Monto</th></tr></thead><tbody id="expenses-body"></tbody></table></div>
+            </div>
+        </section>
+
+        <!-- SECCIÓN: CUENTAS CTES -->
+        <section id="accounts-section" style="display:none;">
+            <header class="section-header">
+                <h2>Cuentas Corrientes</h2>
+                <div class="sub-nav">
+                    <button class="sub-btn active" onclick="showSubTabAccount('clientes')">Clientes</button>
+                    <button class="sub-btn" onclick="showSubTabAccount('proveedores')">Proveedores</button>
+                </div>
+            </header>
+            <div id="sub-clientes" class="account-content">
+                <button class="btn-primary" onclick="openEntityForm('customer')" style="margin-bottom:15px;">+ Nuevo Cliente</button>
+                <div id="customers-cards-container" class="cards-grid"></div>
+            </div>
+            <div id="sub-proveedores" class="account-content" style="display:none;">
+                <button class="btn-primary" onclick="openEntityForm('supplier')" style="margin-bottom:15px;">+ Nuevo Proveedor</button>
+                <div id="suppliers-cards-container" class="cards-grid"></div>
+            </div>
+        </section>
+
+        <!-- SECCIÓN: SOCIOS -->
+        <section id="partners-section" style="display:none;">
+            <header class="section-header"><h2>Socios</h2></header>
+            <div class="sub-nav">
+                <button class="sub-btn active" onclick="showSubTabPartner('listado')">Listado</button>
+                <button class="sub-btn" onclick="showSubTabPartner('aporte')">Aportes</button>
+            </div>
+            <div id="sub-partners-listado" class="partner-content">
+                <button class="btn-primary" onclick="openPartnerModal()">+ Nuevo Socio</button>
+                <div class="table-wrapper"><table><thead><tr><th>Nombre</th><th>Inversión</th><th></th></tr></thead><tbody id="partners-body"></tbody></table></div>
+            </div>
+            <div id="sub-partners-aporte" class="partner-content" style="display:none;">
+                <div class="form-container">
+                    <form id="contribution-form">
+                        <div class="form-row">
+                            <div class="form-group"><label>Socio:</label><select id="cont-partner-select" required></select></div>
+                            <div class="form-group"><label>Monto:</label><input type="number" id="cont-amount" step="0.01" required></div>
+                        </div>
+                        <button type="submit" class="btn-primary">Aportar</button>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECCIÓN: REPORTES -->
+        <section id="reports-section" style="display:none;">
+            <header class="section-header">
+                <h2>Panel de Reportes</h2>
+                <div class="sub-nav">
+                    <button class="sub-btn active" onclick="showSubTabReports('dashboard')">Dashboard</button>
+                    <button class="sub-btn" onclick="showSubTabReports('stats')">Estadísticas</button>
+                </div>
+            </header>
+            <div id="sub-reports-dashboard" class="report-content">
+                <div class="balance-grid">
+                    <div class="balance-card"><h3>Hoy</h3><p id="rep-sales-today">$ 0,00</p></div>
+                    <div class="balance-card"><h3>Mes</h3><p id="rep-sales-month">$ 0,00</p></div>
+                    <div class="balance-card total"><h3>Margen</h3><p id="rep-margin">$ 0,00</p></div>
+                </div>
+                <div class="report-charts-grid" style="margin-top:20px;">
+                    <div class="chart-container"><h3>Ventas</h3><canvas id="mainChart"></canvas></div>
+                    <div class="chart-container"><h3>Top 5</h3><ul id="top-products-list" class="top-list"></ul></div>
+                </div>
+            </div>
+            <div id="sub-reports-stats" class="report-content" style="display:none;">
+                <div class="report-charts-grid">
+                    <div class="chart-container"><h3>Rubros</h3><canvas id="rubroChart"></canvas></div>
+                    <div class="chart-container"><h3>Gastos</h3><canvas id="categoryChart"></canvas></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECCIÓN: HISTORIAL -->
+        <section id="history-section" style="display:none;">
+            <header class="section-header"><h2>Historial de Auditoría</h2></header>
+            <div class="search-container" style="display:block;">
+                <input type="date" id="hist-date-start">
+                <input type="date" id="hist-date-end">
+                <button class="btn-primary" onclick="applyHistoryFilters()">Filtrar</button>
+            </div>
+            <div class="table-wrapper"><table><thead><tr><th>Fecha</th><th>User</th><th>Acción</th><th>Detalle</th></tr></thead><tbody id="history-table-body"></tbody></table></div>
+        </section>
+
+        <!-- SECCIÓN: ADMIN -->
+        <section id="admin-section" style="display:none;">
+            <header class="section-header"><h2>Administración</h2>
+                <div class="sub-nav">
+                    <button class="sub-btn active" onclick="showSubTabAdmin('usuarios')">Usuarios</button>
+                    <button class="sub-btn" onclick="showSubTabAdmin('db')">Backup</button>
+                </div>
+            </header>
+            <div id="sub-admin-usuarios" class="admin-content">
+                <button class="btn-primary" onclick="openUserModal()">+ Usuario</button>
+                <div class="table-wrapper"><table><thead><tr><th>User</th><th>Rol</th><th>Acciones</th></tr></thead><tbody id="users-table-body"></tbody></table></div>
+            </div>
+            <div id="sub-admin-db" class="admin-content" style="display:none;">
+                <div class="form-container">
+                    <button class="btn-primary" onclick="exportDatabase()">Exportar Backup</button><hr><br>
+                    <input type="file" id="import-file" accept=".json">
+                    <button class="btn-secondary" onclick="importDatabase()">Importar Backup</button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- MODALES DE PERFIL (CLIENTES Y PROVEEDORES) -->
+
+    <!-- PERFIL CLIENTE -->
+    <div id="client-profile-modal" class="modal" style="display:none;">
+        <div class="modal-content client-profile-grid">
+            <div class="profile-left">
+                <div class="detail-header">
+                    <h2 id="prof-client-name">Cliente</h2>
+                    <button class="btn-close" onclick="closeClientProfile()">X</button>
+                </div>
+                <div class="debt-banner">
+                    <span>Deuda Total:</span> <strong id="prof-client-debt">$ 0,00</strong>
+                </div>
+                <div class="payment-box">
+                    <input type="number" id="prof-pay-amount" placeholder="Monto a cobrar">
+                    <select id="prof-pay-method"><option value="cash">Efectivo</option><option value="bank">Banco</option></select>
+                    <button class="btn-confirm-payment" onclick="registerProfilePayment()">Registrar Pago</button>
+                </div>
+            </div>
+            <div class="profile-right">
+                <h3>Historial de Movimientos</h3>
+                <div class="history-table-header"><span>Pago (-)</span><span>Deuda (+)</span></div>
+                <div id="client-individual-history" class="individual-history-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PERFIL PROVEEDOR -->
+    <div id="supplier-profile-modal" class="modal" style="display:none;">
+        <div class="modal-content client-profile-grid">
+            <div class="profile-left">
+                <div class="detail-header">
+                    <h2 id="prof-supp-name">Proveedor</h2>
+                    <button class="btn-close" onclick="closeSupplierProfile()">X</button>
+                </div>
+                <div class="debt-banner" style="background:#fff8e1; border-color:#ffe082;">
+                    <span>Le debemos:</span> <strong id="prof-supp-debt" style="color:#f57c00;">$ 0,00</strong>
+                </div>
+                <div class="payment-box">
+                    <input type="number" id="prof-supp-pay-amount" placeholder="Monto a pagar">
+                    <select id="prof-supp-pay-method"><option value="cash">Efectivo</option><option value="bank">Banco</option></select>
+                    <button class="btn-confirm-payment" style="background:#2e7d32;" onclick="registerSupplierPayment()">Registrar Pago</button>
+                </div>
+            </div>
+            <div class="profile-right">
+                <h3>Historial de Cuenta</h3>
+                <div class="history-table-header"><span>Pago (-)</span><span>Deuda (+)</span></div>
+                <div id="supp-individual-history" class="individual-history-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALES DE FORMULARIO -->
+    <div id="entity-modal" class="modal" style="display:none;"><div class="modal-content">
+        <h3 id="modal-title">Datos</h3>
+        <form id="entity-form">
+            <input type="hidden" id="entity-id"><input type="hidden" id="entity-type">
+            <div class="form-group"><label>Nombre:</label><input type="text" id="ent-name" required></div>
+            <div class="form-group"><label>ID:</label><input type="text" id="ent-taxid"></div>
+            <div class="form-group"><label>Tel:</label><input type="text" id="ent-phone"></div><br>
+            <button type="submit" class="btn-primary">Guardar</button>
+            <button type="button" class="btn-secondary" onclick="closeEntityForm()">Cerrar</button>
+        </form>
+    </div></div>
+
+    <div id="user-modal" class="modal" style="display:none;"><div class="modal-content">
+        <h3>Usuario</h3>
+        <form id="user-form">
+            <input type="hidden" id="user-id">
+            <div class="form-group"><label>Nombre:</label><input type="text" id="user-username" required></div>
+            <div class="form-group"><label>Pass:</label><input type="password" id="user-password"></div>
+            <div class="form-group"><label>Rol:</label><select id="user-role"><option value="admin">Admin</option><option value="vendedor">Vendedor</option></select></div><br>
+            <button type="submit" class="btn-primary">Guardar</button>
+            <button type="button" class="btn-secondary" onclick="closeUserModal()">Cerrar</button>
+        </form>
+    </div></div>
+
+    <div id="partner-modal" class="modal" style="display:none;"><div class="modal-content">
+        <h3>Socio</h3>
+        <form id="partner-form"><input type="text" id="partner-name" required><br><br>
+            <button type="submit" class="btn-primary">Guardar</button>
+            <button type="button" class="btn-secondary" onclick="closePartnerModal()">Cerrar</button>
+        </form>
+    </div></div>
+
+    <div id="event-detail-modal" class="modal" style="display:none;"><div class="modal-content">
+        <h3>Detalle</h3><div id="event-detail-content" style="background:#eee; padding:10px; font-family:monospace; white-space:pre-wrap;"></div><br>
+        <button class="btn-secondary" onclick="closeEventDetail()">Cerrar</button>
+    </div></div>
+
+    <!-- SCRIPTS -->
+    <script src="js/main.js"></script>
+    <script src="js/inventory.js"></script>
+    <script src="js/sales.js"></script>
+    <script src="js/balance.js"></script>
+    <script src="js/purchases.js"></script>
+    <script src="js/accounts.js"></script>
+    <script src="js/partners.js"></script>
+    <script src="js/reports.js"></script>
+    <script src="js/history.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/admin.js"></script>
+</body>
+</html>
