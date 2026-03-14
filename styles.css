@@ -1,18 +1,22 @@
-/* --- VARIABLES Y PALETA DE COLORES --- */
+/* ==========================================
+   VARIABLES Y PALETA DE COLORES
+   ========================================== */
 :root {
-    --primary: #2c3e50;       /* Azul Sidebar */
-    --secondary: #34495e;     /* Azul Grisáceo */
-    --accent: #3498db;        /* Azul Brillante */
-    --success: #27ae60;       /* Verde Éxito / Pagos */
-    --danger: #e74c3c;        /* Rojo Deuda / Eliminar */
-    --warning: #f1c40f;       /* Amarillo Roles */
-    --light: #f4f7f6;         /* Fondo General */
-    --white: #ffffff;
-    --border: #dcdde1;
-    --text: #2f3640;
+    --primary: #2c3e50;       /* Azul Sidebar / Principal */
+    --secondary: #34495e;     /* Azul Grisáceo / Botones Secundarios */
+    --accent: #3498db;        /* Azul Brillante / Acentos */
+    --success: #27ae60;       /* Verde Éxito / Pagos / Aportes */
+    --danger: #e74c3c;        /* Rojo Deuda / Eliminar / Retiros */
+    --warning: #f1c40f;       /* Amarillo Roles / Alertas */
+    --light: #f4f7f6;         /* Fondo General de la App */
+    --white: #ffffff;         /* Blanco puro */
+    --border: #dcdde1;        /* Gris para bordes de inputs */
+    --text: #2f3640;          /* Color de texto principal */
 }
 
-/* --- RESET Y BASE --- */
+/* ==========================================
+   RESET Y BASE
+   ========================================== */
 * {
     box-sizing: border-box;
     margin: 0;
@@ -27,7 +31,9 @@ body {
     min-height: 100vh;
 }
 
-/* --- SIDEBAR (Navegación Lateral) --- */
+/* ==========================================
+   SIDEBAR (Navegación Lateral)
+   ========================================== */
 .sidebar {
     width: 240px;
     background-color: var(--primary);
@@ -47,7 +53,10 @@ body {
     margin-bottom: 15px;
 }
 
-.sidebar h1 { font-size: 1.5rem; letter-spacing: 1px; }
+.sidebar h1 { 
+    font-size: 1.5rem; 
+    letter-spacing: 1px; 
+}
 
 .nav-btn {
     background: none;
@@ -68,9 +77,14 @@ body {
     color: white;
 }
 
-.nav-btn i { width: 20px; text-align: center; }
+.nav-btn i { 
+    width: 20px; 
+    text-align: center; 
+}
 
-/* --- CONTENIDO PRINCIPAL --- */
+/* ==========================================
+   CONTENIDO PRINCIPAL
+   ========================================== */
 main {
     margin-left: 240px;
     flex-grow: 1;
@@ -78,14 +92,21 @@ main {
     width: calc(100% - 240px);
 }
 
-.section-header { margin-bottom: 25px; }
-.section-header h2 { font-size: 1.8rem; color: var(--primary); }
+.section-header { 
+    margin-bottom: 25px; 
+}
+
+.section-header h2 { 
+    font-size: 1.8rem; 
+    color: var(--primary); 
+}
 
 /* --- SUB-NAVEGACIÓN (Pestañas) --- */
 .sub-nav {
     display: flex;
     gap: 10px;
     margin-bottom: 20px;
+    flex-wrap: wrap;
 }
 
 .sub-btn {
@@ -104,13 +125,16 @@ main {
     color: white;
 }
 
-/* --- TABLAS --- */
+/* ==========================================
+   TABLAS
+   ========================================== */
 .table-wrapper {
     background: var(--white);
     border-radius: 10px;
     box-shadow: 0 4px 15px rgba(0,0,0,0.05);
     overflow: hidden;
     margin-bottom: 20px;
+    overflow-x: auto;
 }
 
 table {
@@ -123,14 +147,22 @@ th {
     color: white;
     padding: 15px;
     text-align: left;
+    font-weight: 600;
 }
 
 td {
     padding: 12px 15px;
     border-bottom: 1px solid #f1f1f1;
+    vertical-align: middle;
 }
 
-/* --- FORMULARIOS --- */
+tr:hover {
+    background-color: #fafafa;
+}
+
+/* ==========================================
+   FORMULARIOS
+   ========================================== */
 .form-container {
     background: var(--white);
     padding: 25px;
@@ -142,12 +174,14 @@ td {
     display: flex;
     gap: 20px;
     margin-bottom: 15px;
+    flex-wrap: wrap;
 }
 
 .form-group {
     display: flex;
     flex-direction: column;
     flex: 1;
+    min-width: 200px;
 }
 
 .form-group label {
@@ -157,18 +191,26 @@ td {
     color: var(--secondary);
 }
 
-/* Fix para inputs que se veían negros */
+/* Inputs generales */
 input, select, textarea {
-    padding: 12px;
+    padding: 10px 12px;
     border: 1px solid var(--border);
     border-radius: 8px;
     font-size: 1rem;
     background-color: var(--white) !important;
     color: var(--text) !important;
     width: 100%;
+    transition: border-color 0.2s;
 }
 
-/* --- GRILLA DE TARJETAS (CLIENTES) --- */
+input:focus, select:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+/* ==========================================
+   GRILLA DE TARJETAS (Cuentas Ctes)
+   ========================================== */
 .cards-grid {
     display: flex;
     flex-direction: column;
@@ -183,13 +225,22 @@ input, select, textarea {
     justify-content: space-between;
     align-items: center;
     box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-    transition: 0.2s;
+    transition: transform 0.2s;
 }
 
-.client-item-card:hover { transform: translateX(5px); }
-.client-info h3 { margin: 0; font-size: 1.2rem; text-transform: capitalize; }
+.client-item-card:hover { 
+    transform: translateX(5px); 
+}
 
-/* --- MODALES --- */
+.client-info h3 { 
+    margin: 0; 
+    font-size: 1.2rem; 
+    text-transform: capitalize; 
+}
+
+/* ==========================================
+   MODALES Y PERFILES
+   ========================================== */
 .modal {
     position: fixed;
     top: 0; left: 0;
@@ -208,15 +259,17 @@ input, select, textarea {
     width: 90%;
     max-width: 500px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    max-height: 90vh;
+    overflow-y: auto;
 }
 
-/* --- PERFIL CLIENTE REESTRUCTURADO (15% MENOS ESCALA) --- */
+/* Perfil Estilo Split (2 Columnas) para Clientes, Prov, Socios */
 .client-profile-grid {
-    max-width: 850px !important; /* Más ancho para dos columnas */
+    max-width: 850px !important;
     display: flex;
     gap: 30px;
     padding: 20px !important;
-    font-size: 0.85rem; /* Reducción de escala del 15% */
+    font-size: 0.9rem;
 }
 
 .profile-left {
@@ -231,8 +284,8 @@ input, select, textarea {
     flex-direction: column;
 }
 
-.client-profile-grid h2 { font-size: 1.3rem; margin: 0; }
-.client-profile-grid h3 { font-size: 1rem; margin-bottom: 10px; color: var(--secondary); }
+.client-profile-grid h2 { font-size: 1.4rem; margin: 0; color: var(--primary); }
+.client-profile-grid h3 { font-size: 1.1rem; margin-bottom: 10px; color: var(--secondary); }
 
 .debt-banner {
     background: #fff5f5;
@@ -241,7 +294,7 @@ input, select, textarea {
     margin: 15px 0;
     border: 1px solid #ffe3e3;
 }
-.debt-banner strong { color: var(--danger); font-size: 1.4rem; display: block; }
+.debt-banner strong { color: var(--danger); font-size: 1.5rem; display: block; }
 
 .payment-box {
     background: #f8f9fa;
@@ -249,23 +302,12 @@ input, select, textarea {
     border-radius: 10px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
 }
 
-.btn-confirm-payment {
-    background: #ff5722;
-    color: white;
-    border: none;
-    padding: 12px;
-    border-radius: 8px;
-    font-weight: bold;
-    cursor: pointer;
-    font-size: 0.85rem;
-}
-
-.btn-close { background: #eee; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; }
-
-/* --- HISTORIAL EN DOS COLUMNAS --- */
+/* ==========================================
+   HISTORIAL DENTRO DE PERFILES (2 Columnas)
+   ========================================== */
 .history-table-header {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -277,8 +319,9 @@ input, select, textarea {
 }
 
 .individual-history-list {
-    max-height: 300px;
+    max-height: 350px;
     overflow-y: auto;
+    padding-right: 5px;
 }
 
 .hist-row {
@@ -289,13 +332,12 @@ input, select, textarea {
 }
 
 .hist-cell { display: flex; flex-direction: column; }
-.hist-amount { font-weight: bold; font-size: 0.9rem; }
-.hist-date { font-size: 0.7rem; color: #999; margin-top: 2px; }
+.hist-amount { font-weight: bold; font-size: 1rem; }
+.hist-date { font-size: 0.75rem; color: #888; margin-top: 2px; }
 
-.val-pago { color: var(--success); }   /* Verde para los "-" */
-.val-deuda { color: var(--danger); }    /* Rojo para los "+" */
-
-/* --- BALANCE Y REPORTES --- */
+/* ==========================================
+   BALANCE, REPORTES Y DASHBOARD
+   ========================================== */
 .balance-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -304,21 +346,24 @@ input, select, textarea {
 
 .balance-card {
     background: white;
-    padding: 25px;
+    padding: 20px;
     border-radius: 15px;
     text-align: center;
     box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
-.balance-card i { font-size: 2rem; color: var(--accent); margin-bottom: 10px; }
-.balance-card p { font-size: 1.8rem; font-weight: bold; color: var(--primary); }
+.balance-card h3 { font-size: 1.1rem; color: var(--secondary); margin-bottom: 5px; }
+.balance-card p { font-size: 1.6rem; font-weight: bold; color: var(--primary); margin: 0;}
 .balance-card.total { background: var(--primary); color: white; }
-.balance-card.total p { color: white; }
+.balance-card.total h3, .balance-card.total p { color: white; }
 
 .report-charts-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 25px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
 }
 
 .chart-container {
@@ -326,18 +371,77 @@ input, select, textarea {
     padding: 20px;
     border-radius: 15px;
     box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    flex: 1;
+    min-width: 300px;
 }
 
-/* --- BOTONES GENERALES --- */
+/* ==========================================
+   NUEVO: ESTILOS MÓDULO DE HISTORIAL
+   ========================================== */
+
+/* Badges de Módulo */
+.badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    display: inline-block;
+    text-align: center;
+}
+
+.badge-ventas { background: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
+.badge-compras { background: #e3f2fd; color: #1565c0; border: 1px solid #bbdefb; }
+.badge-inventario { background: #fff3e0; color: #ef6c00; border: 1px solid #ffe0b2; }
+.badge-auth { background: #ffebee; color: #c62828; border: 1px solid #ffcdd2; }
+.badge-admin { background: #f3e5f5; color: #7b1fa2; border: 1px solid #e1bee7; }
+.badge-socios { background: #e0f2f1; color: #00695c; border: 1px solid #b2dfdb; }
+
+/* Iconos de Acción */
+.action-icon { margin-right: 5px; font-size: 0.9rem; }
+.text-create { color: #27ae60; }
+.text-delete { color: #c0392b; }
+.text-update { color: #f39c12; }
+.text-info   { color: #3498db; }
+
+/* Tabla de Detalle en el Modal */
+.detail-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+}
+.detail-table th { 
+    background: #f9f9f9; 
+    width: 35%; 
+    text-align: left; 
+    padding: 10px; 
+    border-bottom: 1px solid #eee; 
+    color: var(--secondary); 
+}
+.detail-table td { 
+    padding: 10px; 
+    border-bottom: 1px solid #eee; 
+}
+
+
+/* ==========================================
+   BOTONES
+   ========================================== */
+button {
+    font-family: inherit;
+}
+
 .btn-primary {
     background-color: var(--success);
     color: white;
     border: none;
-    padding: 12px 25px;
+    padding: 10px 20px;
     border-radius: 8px;
     font-weight: bold;
     cursor: pointer;
+    transition: 0.2s;
 }
+.btn-primary:hover { background-color: #219653; }
 
 .btn-secondary {
     background-color: var(--secondary);
@@ -346,7 +450,10 @@ input, select, textarea {
     padding: 10px 20px;
     border-radius: 8px;
     cursor: pointer;
+    font-weight: 500;
+    transition: 0.2s;
 }
+.btn-secondary:hover { background-color: #2c3e50; }
 
 .btn-confirm {
     width: 100%;
@@ -357,16 +464,137 @@ input, select, textarea {
     border-radius: 10px;
     font-size: 1.1rem;
     font-weight: bold;
+    cursor: pointer;
 }
 
-.btn-delete { color: var(--danger); background: none; border: none; cursor: pointer; font-size: 1.1rem; }
-.btn-edit { color: var(--accent); background: none; border: none; cursor: pointer; font-size: 1.1rem; margin-right: 10px; }
+.btn-confirm-payment {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 12px;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 0.95rem;
+}
 
-/* --- RESPONSIVE --- */
+.btn-delete { 
+    color: var(--danger); 
+    background: none; 
+    border: none; 
+    cursor: pointer; 
+    font-size: 1.1rem; 
+    padding: 5px;
+}
+.btn-edit { 
+    color: var(--accent); 
+    background: none; 
+    border: none; 
+    cursor: pointer; 
+    font-size: 1.1rem; 
+    margin-right: 10px; 
+    padding: 5px;
+}
+
+.btn-close { 
+    background: #eee; 
+    border: none; 
+    padding: 5px 12px; 
+    border-radius: 5px; 
+    cursor: pointer; 
+    font-weight: bold;
+    color: #666;
+}
+.btn-close:hover { background: #e0e0e0; color: #333; }
+
+/* ==========================================
+   RESPONSIVE (Móviles y Tablets)
+   ========================================== */
 @media (max-width: 1024px) {
     .sidebar { width: 70px; }
     .sidebar span, .sidebar h1 { display: none; }
-    main { margin-left: 70px; width: calc(100% - 70px); }
+    .sidebar .logo { padding: 20px 0; }
+    .nav-btn { padding: 15px; justify-content: center; }
+    .nav-btn i { margin: 0; font-size: 1.2rem; }
+    
+    main { margin-left: 70px; width: calc(100% - 70px); padding: 20px; }
+    
     .client-profile-grid { flex-direction: column; max-width: 95%; }
     .profile-left { border-right: none; border-bottom: 1px solid #eee; padding-bottom: 20px; padding-right: 0; }
+    
+    .sales-grid { grid-template-columns: 1fr !important; }
+}
+
+@media (max-width: 768px) {
+    .form-row { flex-direction: column; gap: 10px; }
+    .balance-grid { grid-template-columns: 1fr; }
+    .report-charts-grid { flex-direction: column; }
+    .chart-container { width: 100%; }
+}
+
+/* ==========================================
+   MEJORAS MÓDULO VENTAS (POS)
+   ========================================== */
+.cart-tabs-container {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 15px;
+    overflow-x: auto;
+}
+
+.cart-tab {
+    background: #e0e0e0;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px 8px 0 0;
+    cursor: pointer;
+    font-weight: bold;
+    color: #555;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.cart-tab.active {
+    background: var(--white);
+    color: var(--primary);
+    border-top: 3px solid var(--accent);
+}
+
+.cart-tab .close-tab {
+    color: #aaa;
+    border-radius: 50%;
+    padding: 2px 6px;
+}
+.cart-tab .close-tab:hover { background: var(--danger); color: white; }
+
+.cart-tab.btn-new-cart { background: var(--success); color: white; border-radius: 8px; margin-left: 10px;}
+
+.autocomplete-list {
+    position: absolute;
+    top: 100%; left: 0; right: 0;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 0 0 8px 8px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    list-style: none;
+    padding: 0; margin: 0;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 1000;
+}
+
+.autocomplete-list li {
+    padding: 10px 15px;
+    cursor: pointer;
+    border-bottom: 1px solid #eee;
+    color: var(--text);
+}
+.autocomplete-list li:hover { background: var(--light); color: var(--accent); }
+
+/* Formato de impresión para Presupuestos */
+@media print {
+    body * { visibility: hidden; }
+    #print-area, #print-area * { visibility: visible; }
+    #print-area { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; }
 }
