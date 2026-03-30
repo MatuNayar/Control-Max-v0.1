@@ -7,10 +7,10 @@
     <link rel="stylesheet" href="css/styles.css">
     <!-- Iconos FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <!-- Librería para Gráficos -->
+    <!-- Librerías Externas -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Librería para exportar a Excel -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.0/dist/JsBarcode.all.min.js"></script>
 </head>
 <body>
 
@@ -21,14 +21,8 @@
             <h2>Control-Max</h2>
             <p>Inicie sesión para acceder</p><br>
             <form id="login-form">
-                <div class="form-group">
-                    <label>Usuario:</label>
-                    <input type="text" id="login-username" required placeholder="admin">
-                </div>
-                <div class="form-group">
-                    <label>Contraseña:</label>
-                    <input type="password" id="login-password" required placeholder="admin">
-                </div><br>
+                <div class="form-group"><label>Usuario:</label><input type="text" id="login-username" required placeholder="admin"></div>
+                <div class="form-group"><label>Contraseña:</label><input type="password" id="login-password" required placeholder="admin"></div><br>
                 <button type="submit" class="btn-primary" style="width: 100%;">Ingresar</button>
             </form>
             <small style="display:block; margin-top:15px; color:#888;">admin / admin</small>
@@ -52,9 +46,7 @@
         <button class="nav-btn admin-only" onclick="showSection('admin')"><i class="fas fa-user-shield"></i> <span>ADMIN</span></button>
 
         <div style="margin-top: auto; padding: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
-            <button class="btn-secondary" onclick="logout()" style="width: 100%;">
-                <i class="fas fa-sign-out-alt"></i> Salir
-            </button>
+            <button class="btn-secondary" onclick="logout()" style="width: 100%;"><i class="fas fa-sign-out-alt"></i> Salir</button>
         </div>
     </nav>
 
@@ -68,48 +60,34 @@
                     <h2>Gestión de Inventario</h2>
                     <button class="btn-primary" onclick="exportInventoryExcel()" style="background-color: #217346;"><i class="fas fa-file-excel"></i> Exportar Excel</button>
                 </div>
-                <div class="sub-nav" style="margin-top:15px;">
+                <div class="sub-nav" style="margin-top:15px; flex-wrap:wrap;">
                     <button class="sub-btn active" onclick="showSubTab('listado')">Listado</button>
                     <button class="sub-btn" onclick="showSubTab('nuevo-prod')">Nuevo Producto</button>
                     <button class="sub-btn" id="tab-btn-editar" onclick="showSubTab('editar-prod')" style="display:none; background-color: var(--warning); color: var(--text);">Editar Producto</button>
                     <button class="sub-btn" onclick="showSubTab('precios')"><i class="fas fa-dollar-sign"></i> Precios</button>
-                    <!-- NUEVO BOTÓN: OFERTAS Y COMBOS -->
-                    <button class="sub-btn" onclick="showSubTab('descuentos')"><i class="fas fa-gift"></i> Ofertas y Combos</button>
-                    <button class="sub-btn" onclick="showSubTab('categorias')"><i class="fas fa-tags"></i> Rubros y Marcas</button>
+                    <button class="sub-btn" onclick="showSubTab('descuentos')"><i class="fas fa-gift"></i> Ofertas/Combos</button>
+                    <button class="sub-btn" onclick="showSubTab('perdidas')"><i class="fas fa-minus-circle"></i> Mermas</button>
+                    <button class="sub-btn" onclick="showSubTab('categorias')"><i class="fas fa-tags"></i> Rubros/Marcas</button>
+                    <button class="sub-btn" onclick="showSubTab('etiquetas')" style="background-color: #34495e; color: white;"><i class="fas fa-barcode"></i> Imprimir Etiquetas</button>
                 </div>
             </header>
             
-            <!-- LISTAS DESPLEGABLES GLOBALES (Para autocompletado) -->
             <datalist id="list-rubros-global"></datalist>
             <datalist id="list-marcas-global"></datalist>
             <datalist id="global-prod-list"></datalist>
 
-            <!-- SUB-PESTAÑA: LISTADO CON FILTROS AVANZADOS -->
+            <!-- SUB-PESTAÑA: LISTADO -->
             <div id="sub-listado" class="sub-content">
                 <div class="form-container" style="margin-bottom: 15px; padding: 15px; background: #f8f9fa;">
                     <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                         <input type="text" id="search-input" placeholder="Buscar por Nombre o Código..." onkeyup="filterProducts()" style="flex: 2; min-width: 200px;">
-                        <select id="filter-rubro" onchange="filterProducts()" style="flex: 1; min-width: 150px;">
-                            <option value="">Todos los Rubros</option>
-                        </select>
-                        <select id="filter-marca" onchange="filterProducts()" style="flex: 1; min-width: 150px;">
-                            <option value="">Todas las Marcas</option>
-                        </select>
+                        <select id="filter-rubro" onchange="filterProducts()" style="flex: 1; min-width: 150px;"><option value="">Todos los Rubros</option></select>
+                        <select id="filter-marca" onchange="filterProducts()" style="flex: 1; min-width: 150px;"><option value="">Todas las Marcas</option></select>
                     </div>
                 </div>
                 <div class="table-wrapper">
                     <table>
-                        <thead>
-                            <tr>
-                                <th>Código</th>
-                                <th>Nombre</th>
-                                <th>Rubro</th>
-                                <th>Marca</th>
-                                <th>Stock</th>
-                                <th>P. Venta</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
+                        <thead><tr><th>Código</th><th>Nombre</th><th>Rubro</th><th>Marca</th><th>Stock</th><th>P. Venta</th><th>Acciones</th></tr></thead>
                         <tbody id="inventory-body"></tbody>
                     </table>
                 </div>
@@ -123,28 +101,18 @@
                         <h3>Datos del Producto</h3>
                         <div class="form-row">
                             <div class="form-group"><label>*Nombre:</label><input type="text" id="prod-name" required></div>
-                            <div class="form-group"><label>*Código:</label><input type="text" id="prod-code" required></div>
+                            <div class="form-group"><label>Código (Dejar vacío para Auto):</label><input type="text" id="prod-code" placeholder="Auto-generar..."></div>
                         </div>
                         <div class="form-row">
-                            <div class="form-group">
-                                <label>*Rubro:</label>
-                                <input type="text" id="prod-rubro" list="list-rubros-global" placeholder="Escriba o seleccione..." required>
-                            </div>
-                            <div class="form-group">
-                                <label>*Marca:</label>
-                                <input type="text" id="prod-marca" list="list-marcas-global" placeholder="Escriba o seleccione..." required>
-                            </div>
+                            <div class="form-group"><label>*Rubro:</label><input type="text" id="prod-rubro" list="list-rubros-global" required></div>
+                            <div class="form-group"><label>*Marca:</label><input type="text" id="prod-marca" list="list-marcas-global" required></div>
                         </div>
-                        
-                        <!-- Costos y Precios -->
                         <div class="form-row">
                             <div class="form-group"><label>P. Costo:</label><input type="number" id="prod-cost" step="0.01" oninput="calcNewProdTotal()"></div>
                             <div class="form-group"><label>*P. Venta:</label><input type="number" id="prod-price" step="0.01" required></div>
                             <div class="form-group"><label>*Cant. Inicial:</label><input type="number" id="prod-stock-init" oninput="calcNewProdTotal()" required></div>
                             <div class="form-group"><label>Total Compra:</label><input type="text" id="prod-total-buy" disabled></div>
                         </div>
-
-                        <!-- Sección de Pago Detallada -->
                         <div class="payment-section" style="border: 1px solid var(--accent); padding: 15px; border-radius: 8px; margin-top: 15px;">
                             <h4 style="margin-bottom:10px; color:var(--primary);">Distribución del Pago (Solo para Alta)</h4>
                             <div class="form-row">
@@ -152,19 +120,10 @@
                                 <div class="form-group"><label>Banco:</label><input type="number" id="pay-inv-bank" value="0"></div>
                             </div>
                             <div class="form-row">
-                                <div class="form-group">
-                                    <label>Cta Cte Proveedor:</label>
-                                    <input type="number" id="pay-inv-ctacte" value="0">
-                                    <select id="prod-prov-select" style="margin-top:5px;"></select>
-                                </div>
-                                <div class="form-group">
-                                    <label>Aporte Socio:</label>
-                                    <input type="number" id="pay-inv-partner" value="0">
-                                    <select id="pay-inv-partner-select" style="margin-top:5px;"></select>
-                                </div>
+                                <div class="form-group"><label>Cta Cte Proveedor:</label><input type="number" id="pay-inv-ctacte" value="0"><select id="prod-prov-select" style="margin-top:5px;"></select></div>
+                                <div class="form-group"><label>Aporte Socio:</label><input type="number" id="pay-inv-partner" value="0"><select id="pay-inv-partner-select" style="margin-top:5px;"></select></div>
                             </div>
-                        </div>
-                        <br>
+                        </div><br>
                         <button type="submit" id="btn-save-prod" class="btn-primary" style="width:100%">Guardar Producto</button>
                     </form>
                 </div>
@@ -176,8 +135,6 @@
                     <form id="edit-product-form">
                         <input type="hidden" id="edit-prod-id">
                         <h3>Editar Producto</h3>
-                        <p style="color:#666; font-size:0.85rem; margin-bottom:15px;">La edición no afecta la contabilidad pasada.</p>
-                        
                         <div class="form-row">
                             <div class="form-group"><label>*Nombre:</label><input type="text" id="edit-prod-name" required></div>
                             <div class="form-group"><label>*Código:</label><input type="text" id="edit-prod-code" required></div>
@@ -186,13 +143,11 @@
                             <div class="form-group"><label>*Rubro:</label><input type="text" id="edit-prod-rubro" list="list-rubros-global" required></div>
                             <div class="form-group"><label>*Marca:</label><input type="text" id="edit-prod-marca" list="list-marcas-global" required></div>
                         </div>
-                        
                         <div class="form-row">
                             <div class="form-group"><label>P. Costo:</label><input type="number" id="edit-prod-cost" step="0.01"></div>
-                            <div class="form-group"><label>*P. Venta Actualizado:</label><input type="number" id="edit-prod-price" step="0.01" required></div>
-                            <div class="form-group"><label>Stock Actual (Solo lectura):</label><input type="number" id="edit-prod-stock" disabled style="background:#f0f0f0;"></div>
-                        </div>
-                        <br>
+                            <div class="form-group"><label>*P. Venta:</label><input type="number" id="edit-prod-price" step="0.01" required></div>
+                            <div class="form-group"><label>Stock:</label><input type="number" id="edit-prod-stock" disabled style="background:#f0f0f0;"></div>
+                        </div><br>
                         <div style="display:flex; gap: 10px;">
                             <button type="button" class="btn-secondary" onclick="cancelEdit()" style="flex:1;">Cancelar</button>
                             <button type="submit" class="btn-primary" style="flex:2; background-color: var(--warning); color: var(--text);">Guardar Cambios</button>
@@ -201,100 +156,58 @@
                 </div>
             </div>
 
-            <!-- SUB-PESTAÑA: PRECIOS (MASIVA E INDIVIDUAL) -->
+            <!-- SUB-PESTAÑA: PRECIOS -->
             <div id="sub-precios" class="sub-content" style="display:none;">
                 <div style="display:flex; gap:20px; flex-wrap:wrap;">
-                    
-                    <!-- LADO IZQUIERDO: INDIVIDUAL -->
                     <div class="form-container" style="flex:1; min-width:300px; border-top: 4px solid var(--accent);">
                         <h3>Actualización Individual</h3>
-                        <p style="color:#666; margin-bottom:15px; font-size:0.9rem;">Busque un producto y modifique su precio puntualmente.</p>
+                        <div class="form-row"><div class="form-group" style="flex:2;"><label>Buscar Producto:</label><input type="text" id="ind-upd-search" list="global-prod-list" onchange="autoFillIndUpdate()"></div></div>
                         <div class="form-row">
-                            <div class="form-group" style="flex:2;">
-                                <label>Buscar Producto (Cód o Nombre):</label>
-                                <input type="text" id="ind-upd-search" list="global-prod-list" placeholder="Escriba para buscar..." onchange="autoFillIndUpdate()">
-                            </div>
+                            <div class="form-group"><label>Ajuste:</label><select id="ind-upd-type"><option value="exact">Fijar Precio ($)</option><option value="percent">Porcentaje (%)</option><option value="amount">Monto ($)</option></select></div>
+                            <div class="form-group"><label>Valor:</label><input type="number" id="ind-upd-val" step="0.01"></div>
                         </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Tipo de Ajuste:</label>
-                                <select id="ind-upd-type">
-                                    <option value="exact">Fijar Precio Exacto ($)</option>
-                                    <option value="percent">Porcentaje (+/- %)</option>
-                                    <option value="amount">Sumar/Restar Monto ($)</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Valor:</label>
-                                <input type="number" id="ind-upd-val" step="0.01" placeholder="Ej: 15, -10, 500">
-                            </div>
-                        </div>
-                        <button class="btn-secondary" onclick="previewIndPriceUpdate()" style="width:100%; margin-bottom:10px;"><i class="fas fa-eye"></i> Previsualizar Cambio</button>
-                        
-                        <!-- Preview Individual -->
+                        <button class="btn-secondary" onclick="previewIndPriceUpdate()" style="width:100%; margin-bottom:10px;">Previsualizar</button>
                         <div id="ind-preview-box" style="display:none; background:#f0f8ff; border:1px solid #cce5ff; padding:10px; border-radius:5px; text-align:center;">
-                            <p id="ind-preview-text" style="margin-bottom:10px; font-size:1.1rem; color:var(--text);"></p>
-                            <button class="btn-primary" onclick="applyIndPriceUpdate()"><i class="fas fa-check"></i> Aplicar a este Producto</button>
+                            <p id="ind-preview-text" style="margin-bottom:10px; font-size:1.1rem;"></p>
+                            <button class="btn-primary" onclick="applyIndPriceUpdate()">Aplicar</button>
                         </div>
                     </div>
-
-                    <!-- LADO DERECHO: MASIVO -->
                     <div class="form-container" style="flex:1; min-width:300px; border-top: 4px solid var(--warning);">
                         <h3>Actualización Masiva</h3>
-                        <p style="color:#666; margin-bottom:15px; font-size:0.9rem;">Aplique porcentajes a grupos enteros por rubro o marca.</p>
                         <div class="form-row">
                             <div class="form-group"><label>Rubro:</label><select id="bulk-upd-rubro"><option value="">Todos</option></select></div>
                             <div class="form-group"><label>Marca:</label><select id="bulk-upd-marca"><option value="">Todas</option></select></div>
                         </div>
-                        <div class="form-row">
-                            <div class="form-group"><label>Porcentaje de Ajuste (%):</label><input type="number" id="bulk-upd-percent" placeholder="Ej: 10 (Aumento) o -5 (Rebaja)" step="0.01"></div>
-                        </div>
-                        <button class="btn-secondary" onclick="previewBulkPriceUpdate()" style="width:100%;"><i class="fas fa-eye"></i> Previsualizar Grupo</button>
+                        <div class="form-row"><div class="form-group"><label>Porcentaje (%):</label><input type="number" id="bulk-upd-percent" step="0.01"></div></div>
+                        <button class="btn-secondary" onclick="previewBulkPriceUpdate()" style="width:100%;">Previsualizar</button>
                     </div>
                 </div>
-
-                <!-- TABLA PREVIEW MASIVA -->
                 <div class="form-container" id="bulk-preview-container" style="display:none; margin-top:20px;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                        <h4 style="color:var(--primary);">Vista Previa de Cambios (<span id="bulk-count">0</span> productos)</h4>
-                        <button class="btn-primary" onclick="applyBulkPriceUpdate()"><i class="fas fa-check-double"></i> APLICAR CAMBIOS MASIVOS</button>
+                        <h4 style="color:var(--primary);">Vista Previa (<span id="bulk-count">0</span> prods)</h4>
+                        <button class="btn-primary" onclick="applyBulkPriceUpdate()">APLICAR CAMBIOS</button>
                     </div>
-                    <div class="table-wrapper" style="max-height:400px; overflow-y:auto;">
-                        <table class="mini-table">
-                            <thead><tr><th>Producto</th><th>Precio Actual</th><th>Precio NUEVO</th><th>Diferencia</th></tr></thead>
-                            <tbody id="bulk-preview-body"></tbody>
-                        </table>
+                    <div class="table-wrapper" style="max-height:300px; overflow-y:auto;">
+                        <table class="mini-table"><thead><tr><th>Producto</th><th>Actual</th><th>NUEVO</th><th>Diff</th></tr></thead><tbody id="bulk-preview-body"></tbody></table>
                     </div>
                 </div>
             </div>
 
-            <!-- NUEVA SUB-PESTAÑA: OFERTAS Y COMBOS -->
+            <!-- SUB-PESTAÑA: OFERTAS Y COMBOS -->
             <div id="sub-descuentos" class="sub-content" style="display:none;">
                 <div class="sub-nav" style="border-bottom: 1px solid #ddd; padding-bottom: 10px; margin-bottom: 15px;">
                     <button class="sub-btn active" id="btn-tab-ofertas" onclick="toggleDiscountView('ofertas')">Ofertas Individuales</button>
                     <button class="sub-btn" id="btn-tab-combos" onclick="toggleDiscountView('combos')">Armador de Combos</button>
                 </div>
-
-                <!-- SECCIÓN OFERTAS -->
                 <div id="view-ofertas">
                     <div class="form-container" style="border-left: 4px solid var(--success);">
                         <h3>Crear Oferta Temporal</h3>
                         <div class="form-row" style="align-items:flex-end;">
-                            <div class="form-group" style="flex:2;">
-                                <label>Producto (Busque o Escanee):</label>
-                                <input type="text" id="offer-prod-search" list="global-prod-list" onchange="fillOfferProd()" placeholder="Nombre o Código...">
-                            </div>
+                            <div class="form-group" style="flex:2;"><label>Producto (Busque o Escanee):</label><input type="text" id="offer-prod-search" list="global-prod-list" onchange="fillOfferProd()"></div>
                             <div class="form-group"><label>Precio Normal:</label><input type="text" id="offer-normal-price" disabled></div>
                         </div>
                         <div class="form-row">
-                            <div class="form-group">
-                                <label>Tipo de Oferta:</label>
-                                <select id="offer-type" onchange="calcOfferPreview()">
-                                    <option value="percent">Descuento (%)</option>
-                                    <option value="amount">Restar Monto ($)</option>
-                                    <option value="exact">Fijar Precio Final ($)</option>
-                                </select>
-                            </div>
+                            <div class="form-group"><label>Tipo de Oferta:</label><select id="offer-type" onchange="calcOfferPreview()"><option value="percent">Descuento (%)</option><option value="amount">Restar Monto ($)</option><option value="exact">Fijar Precio Final ($)</option></select></div>
                             <div class="form-group"><label>Valor:</label><input type="number" id="offer-val" step="0.01" oninput="calcOfferPreview()"></div>
                             <div class="form-group"><label>Válido Hasta:</label><input type="date" id="offer-expiry"></div>
                         </div>
@@ -304,38 +217,25 @@
                         </div>
                     </div>
                     <div class="table-wrapper" style="margin-top:20px;">
-                        <table>
-                            <thead><tr><th>Producto</th><th>Precio Normal</th><th>Oferta</th><th>Vence</th><th></th></tr></thead>
-                            <tbody id="offers-body"></tbody>
-                        </table>
+                        <table><thead><tr><th>Producto</th><th>Precio Normal</th><th>Oferta</th><th>Vence</th><th></th></tr></thead><tbody id="offers-body"></tbody></table>
                     </div>
                 </div>
-
-                <!-- SECCIÓN COMBOS -->
                 <div id="view-combos" style="display:none;">
                     <div class="form-container" style="border-left: 4px solid #8e44ad;">
                         <h3>Crear Nuevo Combo</h3>
                         <div class="form-row">
-                            <div class="form-group"><label>*Nombre del Combo:</label><input type="text" id="combo-name" placeholder="Ej: Combo Snack XL"></div>
+                            <div class="form-group"><label>*Nombre del Combo:</label><input type="text" id="combo-name"></div>
                             <div class="form-group"><label>Código (Auto):</label><input type="text" id="combo-code" disabled></div>
                         </div>
-                        
                         <div class="form-row" style="background:#f8f9fa; padding:15px; border-radius:8px; align-items:flex-end;">
-                            <div class="form-group" style="flex:2;">
-                                <label>Agregar Producto al Combo (Busque o Escanee):</label>
-                                <input type="text" id="combo-prod-search" list="global-prod-list" placeholder="Nombre o Código...">
-                            </div>
-                            <div class="form-group" style="flex:1;">
-                                <label>Cantidad:</label><input type="number" id="combo-prod-qty" value="1" min="1">
-                            </div>
-                            <button class="btn-secondary" onclick="addProdToCombo()">Añadir al Combo</button>
+                            <div class="form-group" style="flex:2;"><label>Agregar Producto al Combo:</label><input type="text" id="combo-prod-search" list="global-prod-list" placeholder="Escriba o escanee..."></div>
+                            <div class="form-group" style="flex:1;"><label>Cant:</label><input type="number" id="combo-prod-qty" value="1" min="1"></div>
+                            <button class="btn-secondary" onclick="addProdToCombo()">Añadir</button>
                         </div>
-                        
                         <table class="mini-table" style="margin-top:15px; background:white;">
                             <thead><tr><th>Producto</th><th>Cant.</th><th>Costo U.</th><th>Precio U.</th><th>Subtotal</th><th></th></tr></thead>
                             <tbody id="combo-temp-body"></tbody>
                         </table>
-                        
                         <div style="display:flex; justify-content:space-between; margin-top:15px; padding-top:15px; border-top:2px solid #eee; flex-wrap:wrap; gap:20px;">
                             <div>
                                 <p style="color:#666;">Costo Base Total: <strong>$<span id="combo-total-cost">0.00</span></strong></p>
@@ -343,8 +243,7 @@
                             </div>
                             <div style="text-align:right; background:#f3e5f5; padding:15px; border-radius:8px;">
                                 <div style="display:flex; gap:10px; align-items:center; margin-bottom:10px;">
-                                    <label>Definir Precio:</label>
-                                    <select id="combo-price-type" onchange="calcComboFinal()"><option value="manual">Precio Final Exacto</option><option value="percent">Descuento (%) al Total</option></select>
+                                    <label>Definir Precio:</label><select id="combo-price-type" onchange="calcComboFinal()"><option value="manual">Precio Final Exacto</option><option value="percent">Descuento (%) al Total</option></select>
                                     <input type="number" id="combo-price-val" step="0.01" style="width:100px;" oninput="calcComboFinal()">
                                 </div>
                                 <h3 style="color:#8e44ad; margin:0;">PRECIO DEL COMBO: $<span id="combo-final-price">0.00</span></h3>
@@ -352,142 +251,128 @@
                         </div>
                         <button class="btn-primary" style="width:100%; margin-top:15px; background:#8e44ad;" onclick="saveCombo()">Guardar Combo</button>
                     </div>
-
                     <div class="table-wrapper" style="margin-top:20px;">
-                        <table>
-                            <thead><tr><th>Código</th><th>Nombre Combo</th><th>Items</th><th>Precio Combo</th><th></th></tr></thead>
-                            <tbody id="combos-body"></tbody>
-                        </table>
+                        <table><thead><tr><th>Código</th><th>Nombre Combo</th><th>Items</th><th>Precio Combo</th><th></th></tr></thead><tbody id="combos-body"></tbody></table>
                     </div>
                 </div>
             </div>
 
-            <!-- SUB-PESTAÑA: GESTIÓN DE RUBROS Y MARCAS -->
+            <!-- SUB-PESTAÑA: PÉRDIDAS Y MERMAS -->
+            <div id="sub-perdidas" class="sub-content" style="display:none;">
+                <div style="display:flex; gap:20px; flex-wrap:wrap;">
+                    <div class="form-container" style="flex:1; min-width:300px; border-left: 4px solid var(--danger);">
+                        <h3>Registrar Pérdida (Merma)</h3>
+                        <div class="form-row"><div class="form-group" style="flex:2;"><label>Producto (Busque o Escanee):</label><input type="text" id="loss-prod-search" list="global-prod-list" onchange="autoFillLoss()"></div></div>
+                        <div class="form-row">
+                            <div class="form-group"><label>Stock Actual:</label><input type="text" id="loss-current-stock" disabled style="background:#f0f0f0; font-weight:bold; text-align:center;"></div>
+                            <div class="form-group"><label>Cant. a Descontar:</label><input type="number" id="loss-qty" value="1" min="1" style="text-align:center;"></div>
+                        </div>
+                        <div class="form-row"><div class="form-group"><label>Motivo:</label><select id="loss-reason"><option value="Rotura">Rotura / Daño</option><option value="Vencimiento">Vencimiento</option><option value="Robo">Robo</option><option value="Uso Interno">Uso Interno</option><option value="Otro">Otro</option></select></div></div>
+                        <div class="form-row"><div class="form-group"><label>Observación (Opcional):</label><input type="text" id="loss-obs" placeholder="Detalle adicional..."></div></div>
+                        <button class="btn-delete" style="width:100%; border: 2px solid var(--danger); margin-top:10px; padding:12px; font-weight:bold;" onclick="registerLoss()"><i class="fas fa-minus-circle"></i> Registrar Pérdida</button>
+                    </div>
+                    <div class="form-container" style="flex:1.5; min-width:300px;">
+                        <h3>Historial de Mermas</h3>
+                        <div class="table-wrapper" style="max-height: 450px; overflow-y:auto;">
+                            <table class="mini-table"><thead><tr><th>Fecha</th><th>Producto</th><th style="text-align:center;">Cant.</th><th>Motivo</th><th style="text-align:right;">Pérdida ($)</th></tr></thead><tbody id="losses-body"></tbody></table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SUB-PESTAÑA: GESTIÓN DE RUBROS -->
             <div id="sub-categorias" class="sub-content" style="display:none;">
                 <div style="display:flex; gap:20px; flex-wrap:wrap;">
-                    <div class="form-container" style="flex:1; min-width:300px;">
-                        <h3>Gestión de Rubros</h3>
-                        <div style="display:flex; gap:10px; margin-bottom:15px;">
-                            <input type="text" id="new-rubro-input" placeholder="Nuevo Rubro...">
-                            <button class="btn-primary" onclick="addCategory('rubro')">Agregar</button>
-                        </div>
-                        <ul id="list-mgr-rubros" style="list-style:none; padding:0;"></ul>
+                    <div class="form-container" style="flex:1; min-width:300px;"><div style="display:flex; gap:10px;"><input type="text" id="new-rubro-input" placeholder="Nuevo Rubro..."><button class="btn-primary" onclick="addCategory('rubro')">Añadir</button></div><ul id="list-mgr-rubros" style="list-style:none; padding:15px 0;"></ul></div>
+                    <div class="form-container" style="flex:1; min-width:300px;"><div style="display:flex; gap:10px;"><input type="text" id="new-marca-input" placeholder="Nueva Marca..."><button class="btn-primary" onclick="addCategory('marca')">Añadir</button></div><ul id="list-mgr-marcas" style="list-style:none; padding:15px 0;"></ul></div>
+                </div>
+            </div>
+
+            <!-- SUB-PESTAÑA: IMPRESIÓN DE ETIQUETAS -->
+            <div id="sub-etiquetas" class="sub-content" style="display:none;">
+                <div class="form-container" style="border-top: 4px solid var(--primary);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
+                        <h3 style="margin:0;">Carrito de Impresión de Etiquetas</h3>
+                        <label style="background:#f4f7f6; padding:8px 12px; border-radius:5px; border:1px solid #ccc; font-weight:bold; cursor:pointer;">
+                            <input type="checkbox" id="label-show-price" checked> Mostrar Precios ($)
+                        </label>
                     </div>
-                    <div class="form-container" style="flex:1; min-width:300px;">
-                        <h3>Gestión de Marcas</h3>
-                        <div style="display:flex; gap:10px; margin-bottom:15px;">
-                            <input type="text" id="new-marca-input" placeholder="Nueva Marca...">
-                            <button class="btn-primary" onclick="addCategory('marca')">Agregar</button>
+                    <div class="form-row" style="align-items:flex-end; background: #f8f9fa; padding: 15px; border-radius: 8px;">
+                        <div class="form-group" style="flex:2;"><label>Agregar Producto Manualmente:</label><input type="text" id="label-prod-search" list="global-prod-list" placeholder="Nombre o Código..." onchange="autoFillLabelQty()"></div>
+                        <div class="form-group" style="flex:1;"><label>Cant. a Imprimir:</label><input type="number" id="label-qty" value="1" min="1"></div>
+                        <button class="btn-secondary" onclick="addProdToLabelList()">Añadir a la Cola</button>
+                    </div>
+                    <div class="table-wrapper" style="margin-top:15px; max-height:350px; overflow-y:auto;">
+                        <table class="mini-table">
+                            <thead style="position: sticky; top:0; z-index:1;"><tr><th>Producto</th><th>Código</th><th style="text-align:center;">Cant. de Etiquetas</th><th></th></tr></thead>
+                            <tbody id="label-list-body"></tbody>
+                        </table>
+                    </div>
+                    <div style="margin-top:15px; display:flex; justify-content:space-between; align-items:center;">
+                        <span style="color:#666; font-weight:bold;">Total a Imprimir: <span id="label-total-count" style="color:var(--primary); font-size:1.2rem;">0</span></span>
+                        <div>
+                            <button class="btn-delete" onclick="clearLabelList()" style="margin-right:10px; border:1px solid var(--danger); padding:10px;">Vaciar Lista</button>
+                            <button class="btn-primary" onclick="printLabels()" style="padding:10px 20px; font-size:1.1rem;"><i class="fas fa-print"></i> Generar / Imprimir PDF</button>
                         </div>
-                        <ul id="list-mgr-marcas" style="list-style:none; padding:0;"></ul>
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- SECCIÓN: VENTAS (PUNTO DE VENTA MEJORADO) -->
+        <!-- SECCIÓN: VENTAS (POS Y DEVOLUCIONES) -->
         <section id="sales-section" style="display:none;">
             <header class="section-header">
                 <h2>Terminal Punto de Venta (POS)</h2>
                 <div class="sub-nav">
                     <button class="sub-btn active" onclick="showSubTabSales('pos')">Punto de Venta</button>
                     <button class="sub-btn" onclick="showSubTabSales('quotes')">Presupuestos</button>
+                    <button class="sub-btn" onclick="showSubTabSales('history')"><i class="fas fa-list"></i> Historial y Devoluciones</button>
                 </div>
             </header>
 
             <!-- SUB-PESTAÑA: TERMINAL POS -->
             <div id="sub-sales-pos" class="sales-content">
-                
-                <!-- Pestañas de Múltiples Carritos -->
-                <div class="cart-tabs-container" id="cart-tabs">
-                    <!-- Dinámico -->
-                </div>
-
+                <div class="cart-tabs-container" id="cart-tabs"></div>
                 <div class="sales-grid" style="display: grid; grid-template-columns: 1fr 2fr; gap: 20px;">
-                    <!-- COLUMNA IZQUIERDA: BUSCADOR Y LECTOR -->
                     <div class="sales-input-card form-container" style="display: flex; flex-direction: column; gap: 15px;">
-                        
                         <div class="scanner-box" style="background: var(--primary); padding: 15px; border-radius: 8px; color: white;">
-                            <label style="color: white; font-size: 0.9rem; margin-bottom: 5px; display:block;">
-                                <i class="fas fa-barcode"></i> Lector / Buscador manual (F2)
-                            </label>
+                            <label style="color: white; font-size: 0.9rem; margin-bottom: 5px; display:block;"><i class="fas fa-barcode"></i> Lector / Buscador (F2)</label>
                             <div style="position: relative;">
-                                <input type="text" id="pos-search" placeholder="Código de barras o Nombre..." autocomplete="off" style="font-size: 1.2rem; padding: 12px; font-weight: bold; border: 2px solid var(--accent); color: #333 !important;">
+                                <input type="text" id="pos-search" placeholder="Cód. de barras o Nombre..." autocomplete="off" style="font-size: 1.2rem; padding: 12px; font-weight: bold; border: 2px solid var(--accent); color: #333 !important;">
                                 <ul id="pos-autocomplete" class="autocomplete-list" style="display:none;"></ul>
                             </div>
                         </div>
-
-                        <div class="form-group">
-                            <label>Cantidad:</label>
-                            <input type="number" id="pos-qty" value="1" min="1" style="font-size: 1.2rem; text-align: center;">
-                        </div>
-
-                        <button class="btn-primary" onclick="addCurrentToCart()" style="font-size: 1.1rem; padding: 15px;">
-                            <i class="fas fa-cart-plus"></i> Agregar al Carrito (Enter)
-                        </button>
-
+                        <div class="form-group"><label>Cantidad:</label><input type="number" id="pos-qty" value="1" min="1" style="font-size: 1.2rem; text-align: center;"></div>
+                        <button class="btn-primary" onclick="addCurrentToCart()" style="font-size: 1.1rem; padding: 15px;"><i class="fas fa-cart-plus"></i> Agregar (Enter)</button>
                         <div class="pos-shortcuts" style="margin-top: auto; padding-top: 20px; border-top: 1px solid #eee; color: #888; font-size: 0.85rem;">
-                            <strong>Atajos de Teclado:</strong><br>
-                            <span class="badge" style="background: #eee; color:#333;">F1</span> Nuevo Carrito<br>
-                            <span class="badge" style="background: #eee; color:#333;">F2</span> Buscar Producto<br>
-                            <span class="badge" style="background: #eee; color:#333;">F4</span> Cobrar<br>
+                            <strong>Atajos de Teclado:</strong><br><span class="badge" style="background: #eee; color:#333;">F1</span> Nuevo Carrito<br><span class="badge" style="background: #eee; color:#333;">F2</span> Buscar Producto<br><span class="badge" style="background: #eee; color:#333;">F4</span> Cobrar
                         </div>
                     </div>
-                    
-                    <!-- COLUMNA DERECHA: CARRITO Y COBRO -->
                     <div class="cart-card form-container" style="display: flex; flex-direction: column;">
                         <div class="cart-header" style="display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid var(--primary); padding-bottom: 10px; margin-bottom: 10px;">
                             <h3 id="current-cart-title" style="color: var(--primary); margin:0;">Carrito Actual</h3>
                             <button class="btn-secondary" onclick="saveAsQuote()" style="font-size: 0.8rem; padding: 5px 10px; background: var(--warning); color: #333;"><i class="fas fa-save"></i> Guardar Presupuesto</button>
                         </div>
-                        
                         <div class="table-wrapper" style="flex-grow: 1; max-height: 350px; overflow-y: auto; margin-bottom: 15px;">
                             <table class="modern-table">
-                                <thead style="position: sticky; top: 0; z-index: 1;">
-                                    <tr>
-                                        <th style="width: 50%;">Producto</th>
-                                        <th style="text-align:center;">Cant.</th>
-                                        <th style="text-align:right;">Subtotal</th>
-                                        <th style="width: 40px;"></th>
-                                    </tr>
-                                </thead>
+                                <thead style="position: sticky; top: 0; z-index: 1;"><tr><th style="width: 50%;">Producto</th><th style="text-align:center;">Cant.</th><th style="text-align:right;">Subtotal</th><th style="width: 40px;"></th></tr></thead>
                                 <tbody id="cart-body"></tbody>
                             </table>
                         </div>
-                        
-                        <!-- ÁREA DE COBRO -->
                         <div class="checkout-area" style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #e9ecef;">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                                <div style="flex:1;">
-                                    <label>Cliente:</label>
-                                    <input type="text" id="sales-client-search" list="list-clients" placeholder="Consumidor Final" style="width: 90%;">
-                                    <datalist id="list-clients"></datalist>
-                                </div>
-                                <div style="text-align: right; flex:1;">
-                                    <span style="font-size: 1.2rem; color: #666;">Total a Pagar</span>
-                                    <h2 style="font-size: 2.5rem; margin: 0; color: var(--success); line-height: 1;">$<span id="cart-total">0.00</span></h2>
-                                </div>
+                                <div style="flex:1;"><label>Cliente:</label><input type="text" id="sales-client-search" list="list-clients" placeholder="Consumidor Final" style="width: 90%;"><datalist id="list-clients"></datalist></div>
+                                <div style="text-align: right; flex:1;"><span style="font-size: 1.2rem; color: #666;">Total a Pagar</span><h2 style="font-size: 2.5rem; margin: 0; color: var(--success); line-height: 1;">$<span id="cart-total">0.00</span></h2></div>
                             </div>
-
                             <div style="display: flex; gap: 10px; align-items: flex-end;">
                                 <div style="flex:1;">
                                     <label>Método de Pago:</label>
-                                    <select id="payment-method" onchange="toggleCombinedPayment()">
-                                        <option value="cash">Efectivo</option>
-                                        <option value="bank">Banco/Transferencia</option>
-                                        <option value="ctacte">Cuenta Corriente</option>
-                                        <option value="combined">Combinado...</option>
-                                    </select>
+                                    <select id="payment-method" onchange="toggleCombinedPayment()"><option value="cash">Efectivo</option><option value="bank">Banco/Transferencia</option><option value="ctacte">Cuenta Corriente</option><option value="combined">Combinado...</option></select>
                                 </div>
-                                <button class="btn-confirm" onclick="checkout()" style="flex:1; font-size: 1.2rem; padding: 12px; background: var(--primary);">
-                                    <i class="fas fa-cash-register"></i> COBRAR (F4)
-                                </button>
+                                <button class="btn-confirm" onclick="checkout()" style="flex:1; font-size: 1.2rem; padding: 12px; background: var(--primary);"><i class="fas fa-cash-register"></i> COBRAR (F4)</button>
                             </div>
-
                             <div id="combined-inputs" class="combined-box" style="display:none; gap:10px; margin-top:15px; padding: 15px; background: #fff; border: 1px solid #ddd; border-radius: 5px;">
-                                <input type="number" id="pay-cash" placeholder="Monto Efectivo">
-                                <input type="number" id="pay-bank" placeholder="Monto Banco">
-                                <input type="number" id="pay-ctacte" placeholder="Monto Cta Cte">
+                                <input type="number" id="pay-cash" placeholder="Monto Efectivo"><input type="number" id="pay-bank" placeholder="Monto Banco"><input type="number" id="pay-ctacte" placeholder="Monto Cta Cte">
                             </div>
                         </div>
                     </div>
@@ -498,19 +383,26 @@
             <div id="sub-sales-quotes" class="sales-content" style="display:none;">
                 <div class="form-container">
                     <div class="table-wrapper">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Fecha</th>
-                                    <th>Cliente</th>
-                                    <th>Items</th>
-                                    <th>Total</th>
-                                    <th>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody id="quotes-body"></tbody>
-                        </table>
+                        <table><thead><tr><th>Fecha</th><th>Cliente</th><th>Items</th><th>Total</th><th>Acciones</th></tr></thead><tbody id="quotes-body"></tbody></table>
                     </div>
+                </div>
+            </div>
+
+            <!-- SUB-PESTAÑA: HISTORIAL Y DEVOLUCIONES -->
+            <div id="sub-sales-history" class="sales-content" style="display:none;">
+                <div class="form-container" style="background: #f8f9fa; margin-bottom: 15px;">
+                    <div style="display:flex; gap:15px; flex-wrap:wrap; align-items: flex-end;">
+                        <div class="form-group" style="flex:1;"><label>Desde:</label><input type="date" id="sh-date-start"></div>
+                        <div class="form-group" style="flex:1;"><label>Hasta:</label><input type="date" id="sh-date-end"></div>
+                        <div class="form-group" style="flex:2;"><label>Buscar (ID o Cliente):</label><input type="text" id="sh-search" placeholder="Ej: V-000001 o Juan..."></div>
+                        <div class="form-group"><button class="btn-primary" onclick="renderSalesHistory()"><i class="fas fa-search"></i> Buscar</button></div>
+                    </div>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>ID Venta</th><th>Fecha</th><th>Cliente</th><th>Total</th><th>Estado</th><th>Acciones</th></tr></thead>
+                        <tbody id="sales-history-body"></tbody>
+                    </table>
                 </div>
             </div>
         </section>
@@ -525,7 +417,6 @@
                 </div>
             </header>
 
-            <!-- COMPRA INDIVIDUAL -->
             <div id="sub-individual" class="purchase-content">
                 <div class="form-container">
                     <h3>Datos del Producto</h3>
@@ -536,8 +427,6 @@
                         <div class="form-group"><label>P. Venta Nuevo:</label><input type="number" id="p-ind-price" step="0.01"></div>
                         <div class="form-group"><label>Total:</label><input type="text" id="p-ind-total-display" disabled value="$ 0.00"></div>
                     </div>
-
-                    <!-- DISTRIBUCIÓN DE PAGO INDIVIDUAL -->
                     <div class="payment-section" style="border: 1px solid var(--accent); padding: 15px; border-radius: 8px; margin-top: 15px;">
                         <h4>Distribución del Pago</h4>
                         <div class="form-row">
@@ -545,49 +434,38 @@
                             <div class="form-group"><label>Banco:</label><input type="number" id="pay-ind-bank" value="0"></div>
                         </div>
                         <div class="form-row">
-                            <div class="form-group">
-                                <label>Cta Cte Proveedor:</label>
-                                <input type="number" id="pay-ind-ctacte" value="0">
-                                <select id="pay-ind-prov-select" style="margin-top:5px;"></select>
-                            </div>
-                            <div class="form-group">
-                                <label>Aporte Socio:</label>
-                                <input type="number" id="pay-ind-partner" value="0">
-                                <select id="pay-ind-part-select" style="margin-top:5px;"></select>
-                            </div>
+                            <div class="form-group"><label>Cta Cte Proveedor:</label><input type="number" id="pay-ind-ctacte" value="0"><select id="pay-ind-prov-select" style="margin-top:5px;"></select></div>
+                            <div class="form-group"><label>Aporte Socio:</label><input type="number" id="pay-ind-partner" value="0"><select id="pay-ind-part-select" style="margin-top:5px;"></select></div>
                         </div>
-                    </div>
-                    <br>
+                    </div><br>
                     <button class="btn-primary" onclick="saveIndividualPurchase()" style="width: 100%;">Registrar Compra</button>
                 </div>
             </div>
 
-            <!-- COMPRA GRANDE (MASIVA) -->
+            <!-- COMPRA GRANDE (MASIVA) CON DATAGRID MEJORADA -->
             <div id="sub-grande" class="purchase-content" style="display:none;">
-                <div class="table-wrapper" style="overflow-x: auto;">
-                    <table id="bulk-table" style="min-width: 900px;">
+                <div class="table-wrapper" style="overflow-x: auto; background: #f1f5f9; padding: 10px; border-radius: 10px;">
+                    <table id="bulk-table" class="data-grid-table" style="min-width: 1100px;">
                         <thead>
                             <tr>
-                                <th style="width: 100px;">Código</th>
-                                <th style="width: 200px;">Nombre Producto</th>
-                                <th>Rubro</th>
-                                <th>Marca</th>
-                                <th style="width: 70px;">Cant.</th>
-                                <th style="width: 90px;">Costo U.</th>
-                                <th style="width: 90px;">Venta U.</th>
-                                <th>Subtotal</th>
-                                <th></th>
+                                <th style="width: 12%;">Código</th>
+                                <th style="width: 25%;">Nombre Producto</th>
+                                <th style="width: 15%;">Rubro</th>
+                                <th style="width: 15%;">Marca</th>
+                                <th style="width: 8%;">Cant.</th>
+                                <th style="width: 10%;">Costo U.</th>
+                                <th style="width: 10%;">Venta U.</th>
+                                <th style="width: 10%; text-align:right;">Subtotal</th>
+                                <th style="width: 5%;"></th>
                             </tr>
                         </thead>
                         <tbody id="bulk-body"></tbody>
                     </table>
-                    <button class="btn-secondary" onclick="addBulkRow()" style="margin: 10px;">+ Agregar Fila</button>
+                    <button class="btn-secondary" onclick="addBulkRow()" style="margin: 15px 0; background: var(--primary);"><i class="fas fa-plus"></i> Añadir Fila</button>
                 </div>
                 
                 <div class="form-container" style="margin-top: 20px;">
                     <h3>Total Compra: $<span id="bulk-total-display">0.00</span></h3>
-                    
-                    <!-- DISTRIBUCIÓN DE PAGO MASIVA -->
                     <div class="payment-section" style="border: 1px solid var(--accent); padding: 15px; border-radius: 8px; margin-top: 15px;">
                         <h4>Distribución del Pago Global</h4>
                         <div class="form-row">
@@ -595,19 +473,10 @@
                             <div class="form-group"><label>Banco:</label><input type="number" id="pay-bulk-bank" value="0"></div>
                         </div>
                         <div class="form-row">
-                            <div class="form-group">
-                                <label>Cta Cte Proveedor:</label>
-                                <input type="number" id="pay-bulk-ctacte" value="0">
-                                <select id="pay-bulk-prov-select" style="margin-top:5px;"></select>
-                            </div>
-                            <div class="form-group">
-                                <label>Aporte Socio:</label>
-                                <input type="number" id="pay-bulk-partner" value="0">
-                                <select id="pay-bulk-part-select" style="margin-top:5px;"></select>
-                            </div>
+                            <div class="form-group"><label>Cta Cte Proveedor:</label><input type="number" id="pay-bulk-ctacte" value="0"><select id="pay-bulk-prov-select" style="margin-top:5px;"></select></div>
+                            <div class="form-group"><label>Aporte Socio:</label><input type="number" id="pay-bulk-partner" value="0"><select id="pay-bulk-part-select" style="margin-top:5px;"></select></div>
                         </div>
-                    </div>
-                    <br>
+                    </div><br>
                     <button class="btn-primary" onclick="saveBulkPurchase()" style="width: 100%;">Finalizar Compra Masiva</button>
                 </div>
             </div>
@@ -615,10 +484,11 @@
 
         <!-- SECCIÓN: BALANCE -->
         <section id="balance-section" style="display:none;">
-            <header class="section-header"><h2>Balance</h2>
+            <header class="section-header"><h2>Balance y Finanzas</h2>
                 <div class="sub-nav">
                     <button class="sub-btn active" onclick="showSubTabBalance('saldo')">Saldos</button>
-                    <button class="sub-btn" onclick="showSubTabBalance('gastos')">Gastos</button>
+                    <button class="sub-btn" onclick="showSubTabBalance('gastos')">Registro de Gastos</button>
+                    <button class="sub-btn" onclick="showSubTabBalance('cat-gastos')"><i class="fas fa-tags"></i> Categorías de Gastos</button>
                 </div>
             </header>
             <div id="sub-saldo" class="balance-content">
@@ -628,7 +498,7 @@
                     <div class="balance-card total"><h3>Total</h3><p id="total-amount">$ 0,00</p></div>
                 </div>
                 <div class="form-container" style="margin-top:20px;">
-                    <h3>Transferencia</h3>
+                    <h3>Transferencia entre Cuentas</h3>
                     <div class="form-row">
                         <div class="form-group"><label>Desde:</label><select id="transfer-origin"><option value="cash">Efectivo</option><option value="bank">Banco</option></select></div>
                         <div class="form-group"><label>Monto:</label><input type="number" id="transfer-amount" step="0.01"></div>
@@ -641,14 +511,34 @@
                     <form id="expense-form">
                         <div class="form-row">
                             <div class="form-group"><label>Descripción:</label><input type="text" id="exp-desc" required></div>
-                            <div class="form-group"><label>Monto:</label><input type="number" id="exp-amount" required></div>
+                            <div class="form-group"><label>Monto:</label><input type="number" id="exp-amount" step="0.01" required></div>
                             <div class="form-group"><label>Caja:</label><select id="exp-method"><option value="cash">Efectivo</option><option value="bank">Banco</option></select></div>
-                            <div class="form-group"><label>Categoría:</label><select id="exp-category"><option value="Servicios">Servicios</option><option value="Impuestos">Impuestos</option><option value="Varios">Varios</option></select></div>
+                            <div class="form-group"><label>Categoría:</label><select id="exp-category" required></select></div>
                         </div>
-                        <button type="submit" class="btn-primary">Grabar</button>
+                        <button type="submit" class="btn-delete" style="border:1px solid var(--danger);"><i class="fas fa-minus-circle"></i> Registrar Gasto</button>
                     </form>
                 </div>
-                <div class="table-wrapper"><table id="expenses-table"><thead><tr><th>Descripción</th><th>Categoría</th><th>Método</th><th>Monto</th></tr></thead><tbody id="expenses-body"></tbody></table></div>
+                <div class="table-wrapper"><table class="mini-table"><thead><tr><th>Descripción</th><th>Categoría</th><th>Método</th><th>Monto</th></tr></thead><tbody id="expenses-body"></tbody></table></div>
+            </div>
+            <div id="sub-cat-gastos" class="balance-content" style="display:none;">
+                <div style="display:flex; gap:20px; flex-wrap:wrap;">
+                    <div class="form-container" style="flex:1; min-width:300px; border-top: 4px solid var(--warning);">
+                        <h3 id="exp-cat-form-title">Nueva Categoría</h3>
+                        <form id="exp-cat-form">
+                            <input type="hidden" id="exp-cat-id">
+                            <div class="form-group" style="margin-bottom:15px;"><label>*Nombre:</label><input type="text" id="exp-cat-name" placeholder="Ej: Limpieza..." required></div>
+                            <div class="form-group" style="margin-bottom:15px;"><label>Descripción (Opcional):</label><input type="text" id="exp-cat-desc" placeholder="Detalle..."></div>
+                            <div class="form-group" style="margin-bottom:15px;"><label>Color (Para Gráficos):</label><input type="color" id="exp-cat-color" value="#3498db" style="height:40px; cursor:pointer; padding:2px;"></div>
+                            <div style="display:flex; gap:10px;"><button type="button" class="btn-secondary" onclick="resetExpCatForm()" style="flex:1;">Cancelar</button><button type="submit" class="btn-primary" style="flex:2;">Guardar Categoría</button></div>
+                        </form>
+                    </div>
+                    <div class="form-container" style="flex:2; min-width:300px;">
+                        <h3>Categorías Existentes</h3>
+                        <div class="table-wrapper" style="max-height: 350px; overflow-y:auto;">
+                            <table class="mini-table"><thead style="position:sticky; top:0;"><tr><th style="width:40px;">Color</th><th>Nombre</th><th>Descripción</th><th style="width:90px; text-align:center;">Acciones</th></tr></thead><tbody id="exp-cat-body"></tbody></table>
+                        </div>
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -679,158 +569,185 @@
                 <button class="sub-btn" onclick="showSubTabPartner('aporte')">Registrar Aporte (+)</button>
                 <button class="sub-btn" onclick="showSubTabPartner('retiro')">Registrar Retiro (-)</button>
             </div>
-
-            <!-- SUB-PESTAÑA: LISTADO -->
             <div id="sub-partners-listado" class="partner-content">
                 <button class="btn-primary" onclick="openPartnerModal()">+ Nuevo Socio</button>
                 <div class="table-wrapper" style="margin-top:15px;">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Nombre</th>
-                                <th>Inv. Total (+)</th>
-                                <th>Retiros Total (-)</th>
-                                <th>Neto (=)</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody id="partners-body"></tbody>
-                    </table>
+                    <table><thead><tr><th>Nombre</th><th>Inv. Total (+)</th><th>Retiros Total (-)</th><th>Neto (=)</th><th>Acciones</th></tr></thead><tbody id="partners-body"></tbody></table>
                 </div>
             </div>
-
-            <!-- SUB-PESTAÑA: APORTE (DINERO ENTRA) -->
             <div id="sub-partners-aporte" class="partner-content" style="display:none;">
                 <div class="form-container">
                     <h3>Registrar Inyección de Capital</h3>
-                    <p style="margin-bottom:15px; color:#666;">El dinero ingresará a la Caja o Banco de la empresa.</p>
                     <form id="contribution-form">
                         <div class="form-row">
                             <div class="form-group"><label>Socio:</label><select id="cont-partner-select" required></select></div>
-                            <div class="form-group"><label>Monto:</label><input type="number" id="cont-amount" step="0.01" required></div>
+                            <div class="form-group"><label>Monto ($):</label><input type="number" id="cont-amount" step="0.01" required></div>
                         </div>
                         <div class="form-row">
-                            <div class="form-group"><label>Destino (Entra en):</label><select id="cont-method"><option value="cash">Efectivo (Caja)</option><option value="bank">Banco</option></select></div>
-                            <div class="form-group"><label>Detalle:</label><input type="text" id="cont-detail" placeholder="Ej: Aporte inicial..."></div>
+                            <div class="form-group">
+                                <label>Destino / Tipo:</label>
+                                <select id="cont-method" onchange="toggleContObs()"><option value="cash">Efectivo (Entra a Caja)</option><option value="bank">Banco (Entra a Banco)</option><option value="contable" style="font-weight:bold; color:var(--primary);">Contable (Sin ingreso físico)</option></select>
+                            </div>
+                            <div class="form-group"><label id="lbl-cont-detail">Detalle / Observación:</label><input type="text" id="cont-detail" placeholder="Ej: Aporte inicial..."></div>
                         </div>
                         <button type="submit" class="btn-primary" style="width:100%">Registrar Aporte</button>
                     </form>
                 </div>
             </div>
-
-            <!-- SUB-PESTAÑA: RETIRO (DINERO SALE) -->
             <div id="sub-partners-retiro" class="partner-content" style="display:none;">
                 <div class="form-container" style="border-left: 5px solid var(--danger);">
-                    <h3>Registrar Retiro de Utilidades</h3>
-                    <p style="margin-bottom:15px; color:#666;">El dinero saldrá de la Caja o Banco de la empresa hacia el socio.</p>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                        <h3 style="margin:0;">Registrar Retiro</h3>
+                        <div style="background:#f4f7f6; padding:5px 10px; border-radius:5px; border:1px solid #ccc;">
+                            <label style="margin-right:15px; font-weight:bold; cursor:pointer;"><input type="radio" name="with-type" value="dinero" checked onchange="toggleWithMode()"> 💰 Dinero</label>
+                            <label style="font-weight:bold; cursor:pointer;"><input type="radio" name="with-type" value="mercaderia" onchange="toggleWithMode()"> 📦 Mercadería</label>
+                        </div>
+                    </div>
                     <form id="withdrawal-form">
-                        <div class="form-row">
-                            <div class="form-group"><label>Socio:</label><select id="with-partner-select" required></select></div>
-                            <div class="form-group"><label>Monto a Retirar:</label><input type="number" id="with-amount" step="0.01" required></div>
+                        <div class="form-row"><div class="form-group"><label>Socio:</label><select id="with-partner-select" required></select></div></div>
+                        <div id="with-money-zone">
+                            <div class="form-row"><div class="form-group"><label>Monto ($):</label><input type="number" id="with-amount" step="0.01"></div><div class="form-group"><label>Origen (Sale de):</label><select id="with-method"><option value="cash">Efectivo (Caja)</option><option value="bank">Banco</option></select></div></div>
+                            <div class="form-row"><div class="form-group"><label>Detalle:</label><input type="text" id="with-detail" placeholder="Ej: Retiro personal de utilidades..."></div></div>
                         </div>
-                        <div class="form-row">
-                            <div class="form-group"><label>Origen (Sale de):</label><select id="with-method"><option value="cash">Efectivo (Caja)</option><option value="bank">Banco</option></select></div>
-                            <div class="form-group"><label>Detalle:</label><input type="text" id="with-detail" placeholder="Ej: Retiro personal..."></div>
+                        <div id="with-items-zone" style="display:none;">
+                            <div style="background:#f8f9fa; padding:15px; border-radius:8px; margin-bottom:15px;">
+                                <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                                    <label style="font-weight:bold; color:var(--primary);">Agregar Producto (F2 / Escáner):</label>
+                                    <div><label style="margin-right:10px; cursor:pointer;"><input type="radio" name="with-price-calc" value="costo" checked onchange="renderPartnerCart()"> A Costo</label><label style="cursor:pointer;"><input type="radio" name="with-price-calc" value="venta" onchange="renderPartnerCart()"> A P. Venta</label></div>
+                                </div>
+                                <div style="display:flex; gap:10px;"><input type="text" id="with-prod-search" list="global-prod-list" placeholder="Código o Nombre..." style="flex:2;"><input type="number" id="with-prod-qty" value="1" min="1" style="flex:0.5; text-align:center;"><button type="button" class="btn-secondary" onclick="addProdToPartnerCart()">Añadir</button></div>
+                            </div>
+                            <div class="table-wrapper" style="max-height:250px; overflow-y:auto; margin-bottom:10px;"><table class="mini-table"><thead style="position:sticky; top:0;"><tr><th>Producto</th><th>Precio Un.</th><th style="text-align:center;">Cant.</th><th style="text-align:right;">Subtotal</th><th></th></tr></thead><tbody id="partner-cart-body"></tbody></table></div>
+                            <div style="text-align:right; margin-bottom:15px;"><h3 style="color:var(--danger); margin:0;">Total Retiro: $<span id="partner-cart-total">0.00</span></h3></div>
+                            <div class="form-row"><div class="form-group"><label>Observación (Opcional):</label><input type="text" id="with-items-obs" placeholder="Ej: Mercadería para evento familiar..."></div></div>
                         </div>
-                        <button type="submit" class="btn-delete" style="width:100%; border:1px solid var(--danger);">Registrar Retiro</button>
+                        <button type="submit" class="btn-delete" style="width:100%; border:2px solid var(--danger); font-weight:bold; font-size:1.1rem; padding:12px;"><i class="fas fa-hand-holding-usd"></i> Confirmar Retiro</button>
                     </form>
                 </div>
             </div>
         </section>
 
-        <!-- SECCIÓN: REPORTES -->
+        <!-- SECCIÓN: REPORTES Y DASHBOARD (BI AVANZADO) -->
         <section id="reports-section" style="display:none;">
             <header class="section-header">
-                <h2>Panel de Reportes</h2>
-                <div class="sub-nav">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:15px;">
+                    <h2>Panel de Reportes</h2>
+                    <div style="background:#f4f7f6; padding:8px 15px; border-radius:8px; border:1px solid var(--border);">
+                        <label style="font-weight:bold; margin-right:10px;"><i class="fas fa-calendar-alt"></i> Periodo:</label>
+                        <select id="global-report-filter" onchange="refreshAllReports()" style="padding:5px; border-radius:5px; border:1px solid #ccc; min-width:200px;">
+                            <option value="this_month">Mes Actual</option>
+                            <option value="last_3_months">Últimos 3 Meses</option>
+                            <option value="last_6_months">Últimos 6 Meses</option>
+                            <option value="this_year">Año Actual</option>
+                            <option value="all_time">Total Histórico</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="sub-nav" style="margin-top:20px;">
                     <button class="sub-btn active" onclick="showSubTabReports('dashboard')">Dashboard</button>
                     <button class="sub-btn" onclick="showSubTabReports('stats')">Estadísticas</button>
+                    <button class="sub-btn" onclick="showSubTabReports('individual')"><i class="fas fa-chart-pie"></i> Individual (Finanzas y Stock)</button>
                 </div>
             </header>
+
+            <!-- SUB-PESTAÑA: DASHBOARD -->
             <div id="sub-reports-dashboard" class="report-content">
                 <div class="balance-grid">
                     <div class="balance-card"><h3>Venta Hoy</h3><p id="rep-sales-today">$ 0,00</p></div>
-                    <div class="balance-card"><h3>Venta Sem</h3><p id="rep-sales-week">$ 0,00</p></div>
-                    <div class="balance-card"><h3>Venta Mes</h3><p id="rep-sales-month">$ 0,00</p></div>
-                    <div class="balance-card"><h3>Margen Mes</h3><p id="rep-margin">$ 0,00</p></div>
+                    <div class="balance-card"><h3>Ventas (<span class="rep-period-label">Mes</span>)</h3><p id="rep-sales-period">$ 0,00</p></div>
+                    <div class="balance-card"><h3>Margen Neto (<span class="rep-period-label">Mes</span>)</h3><p id="rep-margin">$ 0,00</p><small style="color:#666;">Ventas - Costos Venta - Gastos - Mermas</small></div>
                 </div>
+                
                 <div class="balance-grid" style="margin-top: 20px;">
                      <div class="balance-card" style="background: #fff8e1; border: 1px solid #ffe082;">
-                        <h3 style="color:#f57c00">Deuda Clientes</h3><p id="rep-debt-cust" style="color:#f57c00">$ 0,00</p>
+                        <h3 style="color:#f57c00">Deuda Clientes (Cuentas a Cobrar)</h3><p id="rep-debt-cust" style="color:#f57c00">$ 0,00</p>
                     </div>
                      <div class="balance-card" style="background: #ffebee; border: 1px solid #ffcdd2;">
-                        <h3 style="color:#c62828">Deuda Proveed.</h3><p id="rep-debt-supp" style="color:#c62828">$ 0,00</p>
+                        <h3 style="color:#c62828">Deuda Proveedores (Cuentas a Pagar)</h3><p id="rep-debt-supp" style="color:#c62828">$ 0,00</p>
                     </div>
                 </div>
 
                 <div class="report-charts-grid" style="margin-top:20px;">
                     <div class="chart-container" style="flex: 2;">
-                        <h3>Histórico Ventas</h3>
-                        <!-- Contenedor relativo para forzar altura con CSS/JS -->
-                        <div style="position: relative; height: 300px;">
-                             <canvas id="mainChart"></canvas>
-                        </div>
+                        <h3>Histórico Ventas (Últimos 30 días)</h3>
+                        <div style="position: relative; height: 300px;"><canvas id="mainChart"></canvas></div>
                     </div>
                     <div class="chart-container" style="flex: 1;">
                         <div style="display:flex; justify-content:space-between;">
-                            <h3>Top 5 Productos</h3>
+                            <h3>Top 5 Productos (<span class="rep-period-label">Mes</span>)</h3>
                             <button class="btn-secondary" style="font-size:0.7rem; padding: 2px 8px;" id="btn-toggle-top" onclick="toggleTopType()">Ver por Ganancia</button>
                         </div>
                         <ul id="top-products-list" class="top-list" style="list-style:none; padding:0; margin-top:10px;"></ul>
                     </div>
                 </div>
             </div>
+
+            <!-- SUB-PESTAÑA: ESTADÍSTICAS -->
             <div id="sub-reports-stats" class="report-content" style="display:none;">
                 <div class="balance-grid">
-                    <div class="balance-card"><h3>Total Ventas</h3><p id="st-sales-total">$ 0,00</p></div>
-                    <div class="balance-card"><h3>Total Costos</h3><p id="st-cost-total">$ 0,00</p></div>
-                    <div class="balance-card"><h3>Total Gastos</h3><p id="st-expenses-total">$ 0,00</p></div>
-                    <div class="balance-card total"><h3>Beneficio Neto</h3><p id="st-net-profit">$ 0,00</p></div>
+                    <div class="balance-card"><h3>Total Ventas (<span class="rep-period-label">Mes</span>)</h3><p id="st-sales-total">$ 0,00</p></div>
+                    <div class="balance-card"><h3>Costo Mercadería Vendida (<span class="rep-period-label">Mes</span>)</h3><p id="st-cost-total" style="color:var(--danger);">$ 0,00</p></div>
+                    <div class="balance-card"><h3>Total Gastos Operativos (<span class="rep-period-label">Mes</span>)</h3><p id="st-expenses-total" style="color:var(--danger);">$ 0,00</p></div>
+                    <div class="balance-card total"><h3>Beneficio Neto (<span class="rep-period-label">Mes</span>)</h3><p id="st-net-profit">$ 0,00</p></div>
                 </div>
                 <div class="report-charts-grid" style="margin-top:20px;">
-                    <div class="chart-container"><h3>Ventas por Rubro</h3><canvas id="rubroChart"></canvas></div>
-                    <div class="chart-container"><h3>Gastos por Categoría</h3><canvas id="categoryChart"></canvas></div>
+                    <div class="chart-container">
+                        <h3>Ventas por Rubro (<span class="rep-period-label">Mes</span>)</h3>
+                        <div style="position: relative; height: 250px;"><canvas id="rubroChart"></canvas></div>
+                    </div>
+                    <div class="chart-container">
+                        <h3>Gastos por Categoría (<span class="rep-period-label">Mes</span>)</h3>
+                        <div style="position: relative; height: 250px;"><canvas id="categoryChart"></canvas></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SUB-PESTAÑA: INDIVIDUAL (STOCK Y FINANZAS) -->
+            <div id="sub-reports-individual" class="report-content" style="display:none;">
+                <div style="display:flex; gap:20px; flex-wrap:wrap; align-items:stretch;">
+                    <div class="form-container" style="flex:1; min-width:300px; border-top: 4px solid var(--accent);">
+                        <h3 style="color:var(--accent); margin-bottom:15px;"><i class="fas fa-boxes"></i> Inventario y Rendimiento</h3>
+                        <ul style="list-style:none; padding:0; line-height:2.2; font-size:1rem;">
+                            <li style="display:flex; justify-content:space-between;"><span>Valor de Stock (Costo):</span> <strong id="ind-stock-cost">$0.00</strong></li>
+                            <li style="display:flex; justify-content:space-between;"><span>Valor de Stock (Venta):</span> <strong id="ind-stock-price">$0.00</strong></li>
+                            <li style="display:flex; justify-content:space-between; color:var(--success);"><span>Ganancia Potencial:</span> <strong id="ind-stock-profit">$0.00</strong></li>
+                            <hr style="border:0; border-top:1px solid #eee; margin:15px 0;">
+                            <li style="display:flex; justify-content:space-between;"><span>Ticket Promedio (<span class="rep-period-label">Mes</span>):</span> <strong id="ind-ticket-avg">$0.00</strong></li>
+                            <li style="display:flex; justify-content:space-between; align-items:center;">
+                                <span>Producto Estrella:</span> 
+                                <strong id="ind-top-prod" style="text-align:right; max-width:60%; line-height:1.2; font-size:0.85rem;">-</strong>
+                            </li>
+                            <li style="display:flex; justify-content:space-between;"><span>Rubro Top:</span> <strong id="ind-top-rubro">-</strong></li>
+                        </ul>
+                    </div>
+                    <div class="form-container" style="flex:1; min-width:300px; border-top: 4px solid var(--success);">
+                        <h3 style="color:var(--success); margin-bottom:15px;"><i class="fas fa-wallet"></i> Finanzas y Liquidez</h3>
+                        <ul style="list-style:none; padding:0; line-height:2.2; font-size:1rem;">
+                            <li style="display:flex; justify-content:space-between;"><span>Caja Físico:</span> <strong id="ind-cash">$0.00</strong></li>
+                            <li style="display:flex; justify-content:space-between;"><span>Banco / Virtual:</span> <strong id="ind-bank">$0.00</strong></li>
+                            <hr style="border:0; border-top:1px solid #eee; margin:15px 0;">
+                            <li style="display:flex; justify-content:space-between; color:var(--success);"><span>Cuentas a Cobrar (Clientes):</span> <strong id="ind-ar">$0.00</strong></li>
+                            <li style="display:flex; justify-content:space-between; color:var(--danger);"><span>Cuentas a Pagar (Proveed.):</span> <strong id="ind-ap">$0.00</strong></li>
+                            <hr style="border:0; border-top:1px solid #eee; margin:15px 0;">
+                            <li style="display:flex; justify-content:space-between; color:var(--danger);"><span>Total Gastos Operativos (<span class="rep-period-label">Mes</span>):</span> <strong id="ind-exp-total">$0.00</strong></li>
+                            <li style="display:flex; justify-content:space-between; color:var(--danger);"><span>Total Mermas (<span class="rep-period-label">Mes</span>):</span> <strong id="ind-loss-total">$0.00</strong></li>
+                        </ul>
+                    </div>
                 </div>
             </div>
         </section>
 
-        <!-- SECCIÓN: HISTORIAL -->
+        <!-- SECCIÓN: HISTORIAL GLOBAL -->
         <section id="history-section" style="display:none;">
-            <header class="section-header">
-                <h2><i class="fas fa-history"></i> Historial de Auditoría</h2>
-            </header>
-
-            <!-- Barra de Filtros -->
+            <header class="section-header"><h2><i class="fas fa-history"></i> Historial de Auditoría</h2></header>
             <div class="form-container" style="background: #f8f9fa; border: 1px solid #eee; margin-bottom: 20px;">
                 <div style="display:flex; gap:15px; flex-wrap:wrap; align-items: flex-end;">
-                    <div class="form-group" style="flex:1; min-width: 150px;">
-                        <label>Desde:</label>
-                        <input type="date" id="hist-date-start" class="form-control">
-                    </div>
-                    <div class="form-group" style="flex:1; min-width: 150px;">
-                        <label>Hasta:</label>
-                        <input type="date" id="hist-date-end" class="form-control">
-                    </div>
-                    <div class="form-group" style="flex:1; min-width: 150px;">
-                        <label>Módulo:</label>
-                        <select id="hist-filter-module">
-                            <option value="all">Todos</option>
-                            <option value="VENTAS">Ventas</option>
-                            <option value="INVENTARIO">Inventario</option>
-                            <option value="COMPRAS">Compras</option>
-                            <option value="SOCIOS">Socios</option>
-                            <option value="AUTH">Seguridad</option>
-                            <option value="ADMIN">Admin</option>
-                        </select>
-                    </div>
-                    <div class="form-group" style="flex:1; min-width: 150px;">
-                        <label>Usuario:</label>
-                        <select id="hist-filter-user"><option value="all">Todos</option></select>
-                    </div>
-                    <div class="form-group" style="flex:2; min-width: 200px;">
-                        <label>Búsqueda:</label>
-                        <input type="text" id="hist-search" placeholder="Ej: Cliente, Producto, ID...">
-                    </div>
+                    <div class="form-group" style="flex:1; min-width: 150px;"><label>Desde:</label><input type="date" id="hist-date-start" class="form-control"></div>
+                    <div class="form-group" style="flex:1; min-width: 150px;"><label>Hasta:</label><input type="date" id="hist-date-end" class="form-control"></div>
+                    <div class="form-group" style="flex:1; min-width: 150px;"><label>Módulo:</label><select id="hist-filter-module"><option value="all">Todos</option><option value="VENTAS">Ventas</option><option value="INVENTARIO">Inventario</option><option value="COMPRAS">Compras</option><option value="SOCIOS">Socios</option><option value="AUTH">Seguridad</option><option value="ADMIN">Admin</option></select></div>
+                    <div class="form-group" style="flex:1; min-width: 150px;"><label>Usuario:</label><select id="hist-filter-user"><option value="all">Todos</option></select></div>
+                    <div class="form-group" style="flex:2; min-width: 200px;"><label>Búsqueda:</label><input type="text" id="hist-search" placeholder="Ej: Cliente, Producto, ID..."></div>
                 </div>
                 <div style="margin-top: 15px; display:flex; gap: 10px; justify-content: flex-end;">
                     <button class="btn-secondary" onclick="resetHistoryFilters()"><i class="fas fa-eraser"></i> Limpiar</button>
@@ -838,25 +755,12 @@
                     <button class="btn-secondary" onclick="exportHistoryCSV()" style="margin-left:auto;"><i class="fas fa-file-csv"></i> Exportar</button>
                 </div>
             </div>
-
-            <!-- Tabla de Resultados -->
             <div class="table-wrapper">
                 <table style="width: 100%; font-size: 0.9rem;">
-                    <thead>
-                        <tr>
-                            <th style="width: 140px;">Fecha <i class="fas fa-sort" onclick="toggleHistoryOrder()" style="cursor:pointer; opacity:0.7"></i></th>
-                            <th style="width: 100px;">Usuario</th>
-                            <th style="width: 120px;">Módulo</th>
-                            <th style="width: 120px;">Acción</th>
-                            <th>Descripción</th>
-                            <th style="width: 60px;"></th>
-                        </tr>
-                    </thead>
+                    <thead><tr><th style="width: 140px;">Fecha <i class="fas fa-sort" onclick="toggleHistoryOrder()" style="cursor:pointer; opacity:0.7"></i></th><th style="width: 100px;">Usuario</th><th style="width: 120px;">Módulo</th><th style="width: 120px;">Acción</th><th>Descripción</th><th style="width: 60px;"></th></tr></thead>
                     <tbody id="history-table-body"></tbody>
                 </table>
             </div>
-            
-            <!-- Paginación -->
             <div id="history-pagination" style="margin-top:15px; display:flex; justify-content: space-between; align-items: center;"></div>
         </section>
 
@@ -868,55 +772,39 @@
                     <button class="sub-btn" onclick="showSubTabAdmin('db')">Base de Datos</button>
                 </div>
             </header>
-            
             <div id="sub-admin-usuarios" class="admin-content">
                 <button class="btn-primary" onclick="openUserModal()">+ Nuevo Usuario</button>
                 <div class="table-wrapper" style="margin-top:15px;">
-                    <table>
-                        <thead><tr><th>Usuario</th><th>Rol</th><th>Estado</th><th>Acciones</th></tr></thead>
-                        <tbody id="users-table-body"></tbody>
-                    </table>
+                    <table><thead><tr><th>Usuario</th><th>Rol</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="users-table-body"></tbody></table>
                 </div>
             </div>
-            
             <div id="sub-admin-db" class="admin-content" style="display:none;">
                 <div class="form-container">
                     <h3>Copia de Seguridad</h3>
                     <p>Descargue una copia completa de todos los datos del sistema.</p>
                     <button class="btn-primary" onclick="exportDatabase()">Exportar Backup (.json)</button>
-                    
                     <hr style="margin: 20px 0;">
-                    
                     <h3>Restaurar Datos</h3>
                     <p>Importe un archivo .json previamente exportado. <strong>¡Cuidado! Esto sobrescribirá los datos actuales.</strong></p>
                     <input type="file" id="import-file" accept=".json" style="margin-bottom:10px;">
                     <button class="btn-secondary" onclick="importDatabase()">Importar Backup</button>
-
                     <hr style="margin: 20px 0;">
-                    
                     <h3 style="color: var(--danger);">Zona de Peligro</h3>
                     <p>Esta acción borrará todos los productos, ventas, clientes y configuración.</p>
-                    <button class="btn-delete" style="border: 2px solid var(--danger); padding: 10px; width: 100%; text-align:center;" onclick="factoryReset()">
-                        <i class="fas fa-bomb"></i> BORRAR TODO EL SISTEMA
-                    </button>
+                    <button class="btn-delete" style="border: 2px solid var(--danger); padding: 10px; width: 100%; text-align:center;" onclick="factoryReset()"><i class="fas fa-bomb"></i> BORRAR TODO EL SISTEMA</button>
                 </div>
             </div>
         </section>
     </main>
 
-    <!-- MODALES -->
+    <!-- MODALES VARIOS -->
 
     <!-- PERFIL CLIENTE -->
     <div id="client-profile-modal" class="modal" style="display:none;">
         <div class="modal-content client-profile-grid">
             <div class="profile-left">
-                <div class="detail-header" style="display:flex; justify-content:space-between;">
-                    <h2 id="prof-client-name">Cliente</h2>
-                    <button class="btn-close" onclick="closeClientProfile()">X</button>
-                </div>
-                <div class="debt-banner">
-                    <span>Deuda Total:</span> <strong id="prof-client-debt">$ 0,00</strong>
-                </div>
+                <div class="detail-header" style="display:flex; justify-content:space-between;"><h2 id="prof-client-name">Cliente</h2><button class="btn-close" onclick="closeClientProfile()">X</button></div>
+                <div class="debt-banner"><span>Deuda Total:</span> <strong id="prof-client-debt">$ 0,00</strong></div>
                 <div class="payment-box">
                     <h3>Registrar Cobro</h3>
                     <input type="number" id="prof-pay-amount" placeholder="Monto a cobrar">
@@ -925,9 +813,7 @@
                 </div>
             </div>
             <div class="profile-right">
-                <h3>Historial de Movimientos</h3>
-                <div class="history-table-header"><span>Pagos (-)</span><span>Deuda (+)</span></div>
-                <div id="client-individual-history" class="individual-history-list"></div>
+                <h3>Historial de Movimientos</h3><div class="history-table-header"><span>Pagos (-)</span><span>Deuda (+)</span></div><div id="client-individual-history" class="individual-history-list"></div>
             </div>
         </div>
     </div>
@@ -936,13 +822,8 @@
     <div id="supplier-profile-modal" class="modal" style="display:none;">
         <div class="modal-content client-profile-grid">
             <div class="profile-left">
-                <div class="detail-header" style="display:flex; justify-content:space-between;">
-                    <h2 id="prof-supp-name">Proveedor</h2>
-                    <button class="btn-close" onclick="closeSupplierProfile()">X</button>
-                </div>
-                <div class="debt-banner" style="background:#fff8e1; border-color:#ffe082;">
-                    <span>Le debemos:</span> <strong id="prof-supp-debt" style="color:#f57c00;">$ 0,00</strong>
-                </div>
+                <div class="detail-header" style="display:flex; justify-content:space-between;"><h2 id="prof-supp-name">Proveedor</h2><button class="btn-close" onclick="closeSupplierProfile()">X</button></div>
+                <div class="debt-banner" style="background:#fff8e1; border-color:#ffe082;"><span>Le debemos:</span> <strong id="prof-supp-debt" style="color:#f57c00;">$ 0,00</strong></div>
                 <div class="payment-box">
                     <h3>Registrar Pago a Proveedor</h3>
                     <input type="number" id="prof-supp-pay-amount" placeholder="Monto a pagar">
@@ -951,9 +832,7 @@
                 </div>
             </div>
             <div class="profile-right">
-                <h3>Historial de Cuenta</h3>
-                <div class="history-table-header"><span>Pagos (-)</span><span>Compras (+)</span></div>
-                <div id="supp-individual-history" class="individual-history-list"></div>
+                <h3>Historial de Cuenta</h3><div class="history-table-header"><span>Pagos (-)</span><span>Compras (+)</span></div><div id="supp-individual-history" class="individual-history-list"></div>
             </div>
         </div>
     </div>
@@ -962,94 +841,61 @@
     <div id="partner-profile-modal" class="modal" style="display:none;">
         <div class="modal-content client-profile-grid">
             <div class="profile-left">
-                <div class="detail-header" style="display:flex; justify-content:space-between;">
-                    <h2 id="prof-partner-name">Socio</h2>
-                    <button class="btn-close" onclick="closePartnerProfile()">X</button>
-                </div>
-                
+                <div class="detail-header" style="display:flex; justify-content:space-between;"><h2 id="prof-partner-name">Socio</h2><button class="btn-close" onclick="closePartnerProfile()">X</button></div>
                 <div class="balance-grid" style="grid-template-columns: 1fr; gap: 10px; margin-top:20px;">
-                    <div class="balance-card" style="padding:15px; background:#e8f5e9; border:1px solid #c8e6c9;">
-                        <h4 style="font-size:0.9rem; color:#2e7d32;">Inversión Total</h4>
-                        <p id="prof-partner-inv" style="font-size:1.4rem; font-weight:bold; color:#2e7d32;">$ 0,00</p>
-                    </div>
-                    <div class="balance-card" style="padding:15px; background:#ffebee; border:1px solid #ffcdd2;">
-                        <h4 style="font-size:0.9rem; color:#c62828;">Retiros Totales</h4>
-                        <p id="prof-partner-with" style="font-size:1.4rem; font-weight:bold; color:#c62828;">$ 0,00</p>
-                    </div>
-                    <div class="balance-card total" style="padding:15px;">
-                        <h4 style="font-size:0.9rem; color:white;">Saldo Neto</h4>
-                        <p id="prof-partner-net" style="font-size:1.4rem; font-weight:bold; color:white;">$ 0,00</p>
+                    <div class="balance-card" style="padding:15px; background:#e8f5e9; border:1px solid #c8e6c9;"><h4 style="font-size:0.9rem; color:#2e7d32;">Inversión Total</h4><p id="prof-partner-inv" style="font-size:1.4rem; font-weight:bold; color:#2e7d32;">$ 0,00</p></div>
+                    <div class="balance-card" style="padding:15px; background:#ffebee; border:1px solid #ffcdd2;"><h4 style="font-size:0.9rem; color:#c62828;">Retiros Totales</h4><p id="prof-partner-with" style="font-size:1.4rem; font-weight:bold; color:#c62828;">$ 0,00</p></div>
+                    <div class="balance-card total" style="padding:15px;"><h4 style="font-size:0.9rem; color:white;">Saldo Neto</h4><p id="prof-partner-net" style="font-size:1.4rem; font-weight:bold; color:white;">$ 0,00</p></div>
+                </div>
+            </div>
+            <div class="profile-right">
+                <h3>Historial de Movimientos</h3><div class="history-table-header"><span>Aportes (+)</span><span>Retiros (-)</span></div><div id="partner-individual-history" class="individual-history-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: DEVOLUCIONES -->
+    <div id="return-modal" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="detail-header" style="display:flex; justify-content:space-between; margin-bottom:15px;">
+                <h2>Devolución: <span id="ret-sale-id" style="color:var(--primary);"></span></h2>
+                <button class="btn-close" onclick="closeReturnModal()">X</button>
+            </div>
+            <div style="background:#fdfdfd; border:1px solid #eee; padding:15px; border-radius:8px; margin-bottom:15px;">
+                <h4 style="margin-bottom:10px;">1. Seleccione Productos a Devolver</h4>
+                <table class="mini-table" style="width:100%;">
+                    <thead><tr><th>Producto</th><th>Precio</th><th>Vendidos</th><th>A Devolver</th></tr></thead>
+                    <tbody id="ret-items-body"></tbody>
+                </table>
+            </div>
+            <div style="display:flex; gap:20px; flex-wrap:wrap; margin-bottom:15px;">
+                <div style="flex:1; background:#fff3cd; padding:15px; border-radius:8px; border:1px solid #ffeeba;">
+                    <h4 style="margin-bottom:10px; color:#856404;">2. Destino Físico</h4>
+                    <label style="display:block; margin-bottom:5px;"><input type="radio" name="ret-type" value="normal" checked> Normal (Vuelve al Stock)</label>
+                    <label style="display:block;"><input type="radio" name="ret-type" value="defective"> Defectuoso (Registrar como Merma)</label>
+                </div>
+                <div style="flex:1; background:#d4edda; padding:15px; border-radius:8px; border:1px solid #c3e6cb;">
+                    <h4 style="margin-bottom:10px; color:#155724;">3. Reintegro de Dinero</h4>
+                    <h2 style="margin:0 0 10px 0; color:var(--success);">Total: $<span id="ret-total-amount">0.00</span></h2>
+                    <div style="display:flex; flex-direction:column; gap:5px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;"><label>Efectivo:</label> <input type="number" id="ret-pay-cash" value="0" step="0.01" style="width:100px; text-align:right;"></div>
+                        <div style="display:flex; justify-content:space-between; align-items:center;"><label>Banco:</label> <input type="number" id="ret-pay-bank" value="0" step="0.01" style="width:100px; text-align:right;"></div>
+                        <div style="display:flex; justify-content:space-between; align-items:center;"><label>Cta Cte Cliente:</label> <input type="number" id="ret-pay-ctacte" value="0" step="0.01" style="width:100px; text-align:right;"></div>
                     </div>
                 </div>
             </div>
-
-            <div class="profile-right">
-                <h3>Historial de Movimientos</h3>
-                <div class="history-table-header"><span>Aportes (+)</span><span>Retiros (-)</span></div>
-                <div id="partner-individual-history" class="individual-history-list"></div>
-            </div>
+            <button class="btn-delete" style="width:100%; padding:15px; border:2px solid var(--danger); font-weight:bold; font-size:1.1rem;" onclick="processReturn()"><i class="fas fa-undo-alt"></i> Confirmar Devolución</button>
         </div>
     </div>
 
-    <!-- FORMULARIO ENTIDAD (Cliente/Proveedor) -->
-    <div id="entity-modal" class="modal" style="display:none;"><div class="modal-content">
-        <h3 id="modal-title">Datos</h3>
-        <form id="entity-form">
-            <input type="hidden" id="entity-id"><input type="hidden" id="entity-type">
-            <div class="form-group"><label>Nombre:</label><input type="text" id="ent-name" required></div>
-            <div class="form-group"><label>ID / DNI / CUIT:</label><input type="text" id="ent-taxid"></div>
-            <div class="form-group"><label>Teléfono:</label><input type="text" id="ent-phone"></div><br>
-            <button type="submit" class="btn-primary" style="width:100%">Guardar</button>
-            <button type="button" class="btn-secondary" onclick="closeEntityForm()" style="width:100%; margin-top:10px;">Cerrar</button>
-        </form>
-    </div></div>
+    <!-- FORMULARIOS ENTIDAD / USUARIO / DETALLE EVENTO -->
+    <div id="entity-modal" class="modal" style="display:none;"><div class="modal-content"><h3 id="modal-title">Datos</h3><form id="entity-form"><input type="hidden" id="entity-id"><input type="hidden" id="entity-type"><div class="form-group"><label>Nombre:</label><input type="text" id="ent-name" required></div><div class="form-group"><label>ID / DNI / CUIT:</label><input type="text" id="ent-taxid"></div><div class="form-group"><label>Teléfono:</label><input type="text" id="ent-phone"></div><br><button type="submit" class="btn-primary" style="width:100%">Guardar</button><button type="button" class="btn-secondary" onclick="closeEntityForm()" style="width:100%; margin-top:10px;">Cerrar</button></form></div></div>
+    <div id="user-modal" class="modal" style="display:none;"><div class="modal-content"><h3>Usuario del Sistema</h3><form id="user-form"><input type="hidden" id="user-id"><div class="form-group"><label>Username:</label><input type="text" id="user-username" required></div><div class="form-group"><label>Contraseña:</label><input type="password" id="user-password"></div><div class="form-group"><label>Rol:</label><select id="user-role"><option value="admin">Administrador</option><option value="vendedor">Vendedor</option><option value="contable">Contable</option></select></div><br><button type="submit" class="btn-primary" style="width:100%">Guardar</button><button type="button" class="btn-secondary" onclick="closeUserModal()" style="width:100%; margin-top:10px;">Cerrar</button></form></div></div>
+    <div id="partner-modal" class="modal" style="display:none;"><div class="modal-content"><h3>Nuevo Socio</h3><form id="partner-form"><div class="form-group"><label>Nombre:</label><input type="text" id="partner-name" required></div><br><button type="submit" class="btn-primary" style="width:100%">Guardar</button><button type="button" class="btn-secondary" onclick="closePartnerModal()" style="width:100%; margin-top:10px;">Cerrar</button></form></div></div>
+    <div id="event-detail-modal" class="modal" style="display:none;"><div class="modal-content" style="max-width: 600px;"><div class="detail-header" style="border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px; display:flex; justify-content:space-between; align-items:center;"><h3 style="margin:0;"><i class="fas fa-info-circle"></i> Detalle del Evento</h3><button class="btn-close" onclick="closeEventDetail()">X</button></div><div id="event-detail-content"></div><div style="margin-top: 20px; text-align: right;"><button class="btn-secondary" onclick="closeEventDetail()">Cerrar</button></div></div></div>
 
-    <!-- FORMULARIO USUARIO -->
-    <div id="user-modal" class="modal" style="display:none;"><div class="modal-content">
-        <h3>Usuario del Sistema</h3>
-        <form id="user-form">
-            <input type="hidden" id="user-id">
-            <div class="form-group"><label>Username:</label><input type="text" id="user-username" required></div>
-            <div class="form-group"><label>Contraseña:</label><input type="password" id="user-password"></div>
-            <div class="form-group"><label>Rol:</label>
-                <select id="user-role">
-                    <option value="admin">Administrador</option>
-                    <option value="vendedor">Vendedor</option>
-                    <option value="contable">Contable</option>
-                </select>
-            </div><br>
-            <button type="submit" class="btn-primary" style="width:100%">Guardar</button>
-            <button type="button" class="btn-secondary" onclick="closeUserModal()" style="width:100%; margin-top:10px;">Cerrar</button>
-        </form>
-    </div></div>
-
-    <!-- FORMULARIO SOCIO (CREACIÓN) -->
-    <div id="partner-modal" class="modal" style="display:none;"><div class="modal-content">
-        <h3>Nuevo Socio</h3>
-        <form id="partner-form">
-            <div class="form-group"><label>Nombre:</label><input type="text" id="partner-name" required></div><br>
-            <button type="submit" class="btn-primary" style="width:100%">Guardar</button>
-            <button type="button" class="btn-secondary" onclick="closePartnerModal()" style="width:100%; margin-top:10px;">Cerrar</button>
-        </form>
-    </div></div>
-
-    <!-- MODAL: DETALLE DEL EVENTO -->
-    <div id="event-detail-modal" class="modal" style="display:none;">
-        <div class="modal-content" style="max-width: 600px;">
-            <div class="detail-header" style="border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px; display:flex; justify-content:space-between; align-items:center;">
-                <h3 style="margin:0;"><i class="fas fa-info-circle"></i> Detalle del Evento</h3>
-                <button class="btn-close" onclick="closeEventDetail()">X</button>
-            </div>
-            
-            <div id="event-detail-content">
-                <!-- Aquí se inyecta la tabla dinámica -->
-            </div>
-
-            <div style="margin-top: 20px; text-align: right;">
-                <button class="btn-secondary" onclick="closeEventDetail()">Cerrar</button>
-            </div>
-        </div>
-    </div>
+    <!-- CONTENEDOR OCULTO PARA IMPRESIÓN A4 -->
+    <div id="print-area"></div>
 
     <!-- SCRIPTS -->
     <script src="js/main.js"></script>

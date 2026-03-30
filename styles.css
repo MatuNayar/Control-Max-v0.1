@@ -101,7 +101,6 @@ main {
     color: var(--primary); 
 }
 
-/* --- SUB-NAVEGACIÓN (Pestañas) --- */
 .sub-nav {
     display: flex;
     gap: 10px;
@@ -126,7 +125,7 @@ main {
 }
 
 /* ==========================================
-   TABLAS
+   TABLAS Y GRILLAS BÁSICAS
    ========================================== */
 .table-wrapper {
     background: var(--white);
@@ -160,8 +159,99 @@ tr:hover {
     background-color: #fafafa;
 }
 
+.mini-table th {
+    background: #f4f7f6;
+    color: var(--text);
+    border-bottom: 2px solid #ddd;
+}
+
 /* ==========================================
-   FORMULARIOS
+   TABLAS DE CARGA MASIVA (DATA-GRID ERP)
+   ========================================== */
+.data-grid-table {
+    border-collapse: separate;
+    border-spacing: 0 8px; 
+    background: transparent;
+}
+
+.data-grid-table th {
+    background-color: transparent;
+    color: #64748b; 
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 0 10px 5px 10px;
+    border-bottom: 2px solid #cbd5e1;
+}
+
+.data-grid-row {
+    background-color: #ffffff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    transition: all 0.2s ease;
+}
+
+.data-grid-row:hover {
+    box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+    transform: translateY(-1px);
+}
+
+.data-grid-row td {
+    padding: 8px 6px;
+    border: none;
+}
+
+.grid-input {
+    width: 100%;
+    background-color: #f8fafc !important; 
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 0.95rem;
+    color: #334155 !important;
+    transition: all 0.2s ease;
+}
+
+.grid-input::placeholder { color: #94a3b8; font-style: italic; }
+.grid-input:hover { border-color: #cbd5e1; background-color: #ffffff !important; }
+.grid-input:focus {
+    outline: none;
+    border-color: var(--accent); 
+    background-color: #ffffff !important;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.15); 
+}
+
+.grid-input.center-text { text-align: center; }
+.grid-input.right-text { text-align: right; }
+
+.grid-subtotal {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--primary);
+    display: block;
+    padding-right: 10px;
+}
+
+.btn-grid-delete {
+    background: #fee2e2;
+    color: #dc2626;
+    border: none;
+    border-radius: 6px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.btn-grid-delete:hover {
+    background: #dc2626;
+    color: white;
+}
+
+/* ==========================================
+   FORMULARIOS Y TARJETAS
    ========================================== */
 .form-container {
     background: var(--white);
@@ -191,7 +281,6 @@ tr:hover {
     color: var(--secondary);
 }
 
-/* Inputs generales */
 input, select, textarea {
     padding: 10px 12px;
     border: 1px solid var(--border);
@@ -208,304 +297,163 @@ input:focus, select:focus {
     border-color: var(--accent);
 }
 
-/* ==========================================
-   GRILLA DE TARJETAS (Cuentas Ctes)
-   ========================================== */
-.cards-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.client-item-card {
-    background: white;
-    padding: 20px;
-    border-radius: 12px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-    transition: transform 0.2s;
-}
-
-.client-item-card:hover { 
-    transform: translateX(5px); 
-}
-
-.client-info h3 { 
-    margin: 0; 
-    font-size: 1.2rem; 
-    text-transform: capitalize; 
-}
+.cards-grid { display: flex; flex-direction: column; gap: 12px; }
+.client-item-card { background: white; padding: 20px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.06); transition: transform 0.2s; }
+.client-item-card:hover { transform: translateX(5px); }
+.client-info h3 { margin: 0; font-size: 1.2rem; text-transform: capitalize; }
 
 /* ==========================================
    MODALES Y PERFILES
    ========================================== */
-.modal {
-    position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    background: rgba(0,0,0,0.6);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 2000;
-}
-
-.modal-content {
-    background: white;
-    padding: 30px;
-    border-radius: 15px;
-    width: 90%;
-    max-width: 500px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-    max-height: 90vh;
-    overflow-y: auto;
-}
-
-/* Perfil Estilo Split (2 Columnas) para Clientes, Prov, Socios */
-.client-profile-grid {
-    max-width: 850px !important;
-    display: flex;
-    gap: 30px;
-    padding: 20px !important;
-    font-size: 0.9rem;
-}
-
-.profile-left {
-    flex: 1;
-    border-right: 1px solid #eee;
-    padding-right: 20px;
-}
-
-.profile-right {
-    flex: 1.5;
-    display: flex;
-    flex-direction: column;
-}
-
+.modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 2000; }
+.modal-content { background: white; padding: 30px; border-radius: 15px; width: 90%; max-width: 500px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); max-height: 90vh; overflow-y: auto; }
+.client-profile-grid { max-width: 850px !important; display: flex; gap: 30px; padding: 20px !important; font-size: 0.9rem; }
+.profile-left { flex: 1; border-right: 1px solid #eee; padding-right: 20px; }
+.profile-right { flex: 1.5; display: flex; flex-direction: column; }
 .client-profile-grid h2 { font-size: 1.4rem; margin: 0; color: var(--primary); }
 .client-profile-grid h3 { font-size: 1.1rem; margin-bottom: 10px; color: var(--secondary); }
-
-.debt-banner {
-    background: #fff5f5;
-    padding: 15px;
-    border-radius: 10px;
-    margin: 15px 0;
-    border: 1px solid #ffe3e3;
-}
+.debt-banner { background: #fff5f5; padding: 15px; border-radius: 10px; margin: 15px 0; border: 1px solid #ffe3e3; }
 .debt-banner strong { color: var(--danger); font-size: 1.5rem; display: block; }
+.payment-box { background: #f8f9fa; padding: 15px; border-radius: 10px; display: flex; flex-direction: column; gap: 10px; }
 
-.payment-box {
-    background: #f8f9fa;
-    padding: 15px;
-    border-radius: 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-/* ==========================================
-   HISTORIAL DENTRO DE PERFILES (2 Columnas)
-   ========================================== */
-.history-table-header {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    font-weight: bold;
-    border-bottom: 2px solid var(--primary);
-    padding-bottom: 5px;
-    margin-bottom: 10px;
-    color: var(--primary);
-}
-
-.individual-history-list {
-    max-height: 350px;
-    overflow-y: auto;
-    padding-right: 5px;
-}
-
-.hist-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    padding: 10px 0;
-    border-bottom: 1px solid #f0f0f0;
-}
-
+.history-table-header { display: grid; grid-template-columns: 1fr 1fr; font-weight: bold; border-bottom: 2px solid var(--primary); padding-bottom: 5px; margin-bottom: 10px; color: var(--primary); }
+.individual-history-list { max-height: 350px; overflow-y: auto; padding-right: 5px; }
+.hist-row { display: grid; grid-template-columns: 1fr 1fr; padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
 .hist-cell { display: flex; flex-direction: column; }
 .hist-amount { font-weight: bold; font-size: 1rem; }
 .hist-date { font-size: 0.75rem; color: #888; margin-top: 2px; }
 
 /* ==========================================
-   BALANCE, REPORTES Y DASHBOARD
+   DASHBOARD Y BALANCES
    ========================================== */
-.balance-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 20px;
-}
-
-.balance-card {
-    background: white;
-    padding: 20px;
-    border-radius: 15px;
-    text-align: center;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-}
-
+.balance-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
+.balance-card { background: white; padding: 20px; border-radius: 15px; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.05); display: flex; flex-direction: column; justify-content: center; }
 .balance-card h3 { font-size: 1.1rem; color: var(--secondary); margin-bottom: 5px; }
 .balance-card p { font-size: 1.6rem; font-weight: bold; color: var(--primary); margin: 0;}
 .balance-card.total { background: var(--primary); color: white; }
 .balance-card.total h3, .balance-card.total p { color: white; }
 
-.report-charts-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 20px;
-}
+.report-charts-grid { display: flex; flex-wrap: wrap; gap: 20px; }
+.chart-container { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); flex: 1; min-width: 300px; }
 
-.chart-container {
-    background: white;
-    padding: 20px;
-    border-radius: 15px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-    flex: 1;
-    min-width: 300px;
-}
-
-/* ==========================================
-   NUEVO: ESTILOS MÓDULO DE HISTORIAL
-   ========================================== */
-
-/* Badges de Módulo */
-.badge {
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 0.75rem;
-    font-weight: bold;
-    text-transform: uppercase;
-    display: inline-block;
-    text-align: center;
-}
-
-.badge-ventas { background: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
-.badge-compras { background: #e3f2fd; color: #1565c0; border: 1px solid #bbdefb; }
-.badge-inventario { background: #fff3e0; color: #ef6c00; border: 1px solid #ffe0b2; }
-.badge-auth { background: #ffebee; color: #c62828; border: 1px solid #ffcdd2; }
-.badge-admin { background: #f3e5f5; color: #7b1fa2; border: 1px solid #e1bee7; }
-.badge-socios { background: #e0f2f1; color: #00695c; border: 1px solid #b2dfdb; }
-
-/* Iconos de Acción */
-.action-icon { margin-right: 5px; font-size: 0.9rem; }
-.text-create { color: #27ae60; }
-.text-delete { color: #c0392b; }
-.text-update { color: #f39c12; }
-.text-info   { color: #3498db; }
-
-/* Tabla de Detalle en el Modal */
-.detail-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.95rem;
-}
-.detail-table th { 
-    background: #f9f9f9; 
-    width: 35%; 
-    text-align: left; 
-    padding: 10px; 
-    border-bottom: 1px solid #eee; 
-    color: var(--secondary); 
-}
-.detail-table td { 
-    padding: 10px; 
-    border-bottom: 1px solid #eee; 
-}
-
+.badge { padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; display: inline-block; text-align: center; }
 
 /* ==========================================
    BOTONES
    ========================================== */
-button {
-    font-family: inherit;
-}
-
-.btn-primary {
-    background-color: var(--success);
-    color: white;
-    border: none;
-    padding: 10px 20px;
-    border-radius: 8px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: 0.2s;
-}
+button { font-family: inherit; }
+.btn-primary { background-color: var(--success); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; }
 .btn-primary:hover { background-color: #219653; }
-
-.btn-secondary {
-    background-color: var(--secondary);
-    color: white;
-    border: none;
-    padding: 10px 20px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: 500;
-    transition: 0.2s;
-}
+.btn-secondary { background-color: var(--secondary); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 500; transition: 0.2s; }
 .btn-secondary:hover { background-color: #2c3e50; }
-
-.btn-confirm {
-    width: 100%;
-    padding: 15px;
-    background-color: var(--success);
-    color: white;
-    border: none;
-    border-radius: 10px;
-    font-size: 1.1rem;
-    font-weight: bold;
-    cursor: pointer;
-}
-
-.btn-confirm-payment {
-    background: var(--accent);
-    color: white;
-    border: none;
-    padding: 12px;
-    border-radius: 8px;
-    font-weight: bold;
-    cursor: pointer;
-    font-size: 0.95rem;
-}
-
-.btn-delete { 
-    color: var(--danger); 
-    background: none; 
-    border: none; 
-    cursor: pointer; 
-    font-size: 1.1rem; 
-    padding: 5px;
-}
-.btn-edit { 
-    color: var(--accent); 
-    background: none; 
-    border: none; 
-    cursor: pointer; 
-    font-size: 1.1rem; 
-    margin-right: 10px; 
-    padding: 5px;
-}
-
-.btn-close { 
-    background: #eee; 
-    border: none; 
-    padding: 5px 12px; 
-    border-radius: 5px; 
-    cursor: pointer; 
-    font-weight: bold;
-    color: #666;
-}
+.btn-confirm { width: 100%; padding: 15px; background-color: var(--success); color: white; border: none; border-radius: 10px; font-size: 1.1rem; font-weight: bold; cursor: pointer; }
+.btn-confirm-payment { background: var(--accent); color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 0.95rem; }
+.btn-delete { color: var(--danger); background: none; border: none; cursor: pointer; font-size: 1.1rem; padding: 5px; }
+.btn-edit { color: var(--accent); background: none; border: none; cursor: pointer; font-size: 1.1rem; margin-right: 10px; padding: 5px; }
+.btn-close { background: #eee; border: none; padding: 5px 12px; border-radius: 5px; cursor: pointer; font-weight: bold; color: #666; }
 .btn-close:hover { background: #e0e0e0; color: #333; }
+
+/* ==========================================
+   VENTAS (POS) - CARRITOS Y BUSCADOR
+   ========================================== */
+.cart-tabs-container { display: flex; gap: 5px; margin-bottom: 15px; overflow-x: auto; }
+.cart-tab { background: #e0e0e0; border: none; padding: 10px 20px; border-radius: 8px 8px 0 0; cursor: pointer; font-weight: bold; color: #555; display: flex; align-items: center; gap: 10px; }
+.cart-tab.active { background: var(--white); color: var(--primary); border-top: 3px solid var(--accent); }
+.cart-tab .close-tab { color: #aaa; border-radius: 50%; padding: 2px 6px; }
+.cart-tab .close-tab:hover { background: var(--danger); color: white; }
+.cart-tab.btn-new-cart { background: var(--success); color: white; border-radius: 8px; margin-left: 10px; }
+
+.autocomplete-list { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #ccc; border-radius: 0 0 8px 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); list-style: none; padding: 0; margin: 0; max-height: 200px; overflow-y: auto; z-index: 1000; }
+.autocomplete-list li { padding: 10px 15px; cursor: pointer; border-bottom: 1px solid #eee; color: var(--text); }
+.autocomplete-list li:hover { background: var(--light); color: var(--accent); }
+
+
+/* ==========================================
+   IMPRESIÓN (ETIQUETAS A4 PROFESIONALES - 5 COLUMNAS)
+   ========================================== */
+@media print {
+    body * { visibility: hidden; }
+    
+    @page {
+        size: A4;
+        margin: 0; 
+    }
+    
+    body {
+        margin: 0;
+        padding: 0;
+        background: white;
+    }
+
+    #print-area, #print-area * { visibility: visible; }
+    
+    #print-area { 
+        position: absolute; 
+        left: 0; 
+        top: 0; 
+        width: 100%; 
+        background: white; 
+    }
+    
+    .a4-sheet {
+        width: 210mm;
+        height: 297mm;
+        padding: 5mm; 
+        display: grid;
+        grid-template-columns: repeat(5, 1fr); 
+        grid-auto-rows: 25mm; 
+        gap: 2mm; 
+        box-sizing: border-box;
+        page-break-after: always;
+        overflow: hidden; 
+    }
+    
+    .label-item {
+        border: 1px dashed #999;
+        padding: 1.5mm;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center; 
+        text-align: center;
+        overflow: hidden;
+        page-break-inside: avoid;
+        background: white;
+    }
+    
+    .label-name { 
+        font-size: 9px; 
+        font-weight: bold; 
+        margin-bottom: 1px; 
+        white-space: nowrap; 
+        overflow: hidden; 
+        text-overflow: ellipsis; 
+        width: 100%; 
+        color: black;
+    }
+    
+    .label-price { 
+        font-size: 11px; 
+        font-weight: bold; 
+        margin-top: 1px; 
+        color: black;
+    }
+    
+    .barcode-wrapper {
+        width: 90%;
+        height: 12mm; 
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        overflow: hidden;
+    }
+
+    .barcode { 
+        width: 100%; 
+        height: 100%; 
+        object-fit: contain; 
+    }
+}
 
 /* ==========================================
    RESPONSIVE (Móviles y Tablets)
@@ -516,12 +464,9 @@ button {
     .sidebar .logo { padding: 20px 0; }
     .nav-btn { padding: 15px; justify-content: center; }
     .nav-btn i { margin: 0; font-size: 1.2rem; }
-    
     main { margin-left: 70px; width: calc(100% - 70px); padding: 20px; }
-    
     .client-profile-grid { flex-direction: column; max-width: 95%; }
     .profile-left { border-right: none; border-bottom: 1px solid #eee; padding-bottom: 20px; padding-right: 0; }
-    
     .sales-grid { grid-template-columns: 1fr !important; }
 }
 
@@ -530,71 +475,4 @@ button {
     .balance-grid { grid-template-columns: 1fr; }
     .report-charts-grid { flex-direction: column; }
     .chart-container { width: 100%; }
-}
-
-/* ==========================================
-   MEJORAS MÓDULO VENTAS (POS)
-   ========================================== */
-.cart-tabs-container {
-    display: flex;
-    gap: 5px;
-    margin-bottom: 15px;
-    overflow-x: auto;
-}
-
-.cart-tab {
-    background: #e0e0e0;
-    border: none;
-    padding: 10px 20px;
-    border-radius: 8px 8px 0 0;
-    cursor: pointer;
-    font-weight: bold;
-    color: #555;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.cart-tab.active {
-    background: var(--white);
-    color: var(--primary);
-    border-top: 3px solid var(--accent);
-}
-
-.cart-tab .close-tab {
-    color: #aaa;
-    border-radius: 50%;
-    padding: 2px 6px;
-}
-.cart-tab .close-tab:hover { background: var(--danger); color: white; }
-
-.cart-tab.btn-new-cart { background: var(--success); color: white; border-radius: 8px; margin-left: 10px;}
-
-.autocomplete-list {
-    position: absolute;
-    top: 100%; left: 0; right: 0;
-    background: white;
-    border: 1px solid #ccc;
-    border-radius: 0 0 8px 8px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    list-style: none;
-    padding: 0; margin: 0;
-    max-height: 200px;
-    overflow-y: auto;
-    z-index: 1000;
-}
-
-.autocomplete-list li {
-    padding: 10px 15px;
-    cursor: pointer;
-    border-bottom: 1px solid #eee;
-    color: var(--text);
-}
-.autocomplete-list li:hover { background: var(--light); color: var(--accent); }
-
-/* Formato de impresión para Presupuestos */
-@media print {
-    body * { visibility: hidden; }
-    #print-area, #print-area * { visibility: visible; }
-    #print-area { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; }
 }

@@ -1,15 +1,14 @@
 /**
- * CONTROL-MAX - Módulo de Reportes y Dashboard
- * - Compatible con desgloses de Combos y Ofertas
- * - Cálculo Proporcional por Rubro
- * - Top de Productos Individuales
+ * CONTROL-MAX - Módulo de Reportes Contables y Analítica
+ * Lógica de Costo de Mercadería Vendida (COGS) y Filtros Globales.
  */
 
 let mainChart, rubroChart, categoryChart;
-let topType = 'qty'; // 'qty' (cantidad) o 'profit' (ganancia)
+let topType = 'qty'; // 'qty' o 'profit'
+let currentPeriodLabel = "Mes Actual";
 
 // ==========================================
-// 1. UTILIDADES DE FORMATO Y FECHA
+// 1. UTILIDADES Y MANEJO DE FECHAS
 // ==========================================
 
 const formatCompactNumber = (number) => {
@@ -18,398 +17,294 @@ const formatCompactNumber = (number) => {
     return number.toString();
 };
 
-const normalizeDate = (dateString) => {
-    const d = new Date(dateString);
-    d.setHours(0, 0, 0, 0);
-    return d;
+const parseSafeDate = (dateStr) => {
+    if (!dateStr) return new Date(0);
+    if (dateStr.includes('T')) return new Date(dateStr); 
+    const parts = dateStr.split(',')[0].split(' ')[0].split('/'); 
+    if(parts.length === 3) return new Date(parts[2], parts[1]-1, parts[0]);
+    return new Date(dateStr);
 };
 
-const isToday = (dateString) => {
-    const d = normalizeDate(dateString);
-    const now = normalizeDate(new Date());
-    return d.getTime() === now.getTime();
-};
-
-const isThisMonth = (dateString) => {
-    const d = new Date(dateString);
-    const now = new Date();
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-};
-
-const isThisWeek = (dateString) => {
-    const d = normalizeDate(dateString);
-    const now = normalizeDate(new Date());
-    const day = now.getDay() || 7; 
-    const monday = new Date(now);
-    monday.setHours(0,0,0,0);
-    monday.setDate(now.getDate() - day + 1);
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
-    sunday.setHours(23,59,59,999);
-    return d >= monday && d <= sunday;
+const isToday = (d) => {
+    const date = parseSafeDate(d), now = new Date();
+    return date.getDate() === now.getDate() && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
 };
 
 // ==========================================
-// 2. GESTIÓN DE PESTAÑAS Y MIGRACIÓN
+// 2. FILTRO DE TIEMPO GLOBAL
+// ==========================================
+
+function getFilteredData(dataArray, dateField = 'date') {
+    const range = document.getElementById('global-report-filter').value;
+    const now = new Date();
+    now.setHours(23,59,59,999);
+    
+    let startDate = new Date(0); // Para all_time
+    
+    if (range === 'this_month') {
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        currentPeriodLabel = "Mes";
+    } else if (range === 'last_3_months') {
+        startDate = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+        currentPeriodLabel = "3 Meses";
+    } else if (range === 'last_6_months') {
+        startDate = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+        currentPeriodLabel = "6 Meses";
+    } else if (range === 'this_year') {
+        startDate = new Date(now.getFullYear(), 0, 1);
+        currentPeriodLabel = "Año";
+    } else {
+        currentPeriodLabel = "Histórico";
+    }
+
+    document.querySelectorAll('.rep-period-label').forEach(el => el.innerText = currentPeriodLabel);
+
+    return dataArray.filter(item => {
+        if (!item[dateField]) return false;
+        const itemDate = parseSafeDate(item[dateField]);
+        return itemDate >= startDate && itemDate <= now;
+    });
+}
+
+function refreshAllReports() {
+    initDashboard();
+}
+
+// ==========================================
+// 3. NAVEGACIÓN Y CARGA DE DATOS
 // ==========================================
 
 function showSubTabReports(tabId) {
     document.querySelectorAll('.report-content').forEach(el => el.style.display = 'none');
-    const target = document.getElementById(`sub-reports-${tabId}`);
-    if (target) target.style.display = 'block';
+    document.getElementById(`sub-reports-${tabId}`).style.display = 'block';
     
     document.querySelectorAll('#reports-section .sub-btn').forEach(btn => {
         btn.classList.remove('active');
         if(btn.getAttribute('onclick').includes(tabId)) btn.classList.add('active');
     });
 
-    migrateSalesData(); 
-    
-    if(tabId === 'dashboard') initDashboard();
-    if(tabId === 'stats') initStats();
+    initDashboard();
 }
-
-function migrateSalesData() {
-    let sales = JSON.parse(localStorage.getItem('salesHistory')) || [];
-    let changed = false;
-
-    sales.forEach(s => {
-        if (!s.type) { s.type = 'venta'; changed = true; }
-        if (!s.status) { s.status = 'completada'; changed = true; }
-        if (!s.date) { s.date = new Date().toISOString(); changed = true; }
-    });
-
-    if (changed) {
-        localStorage.setItem('salesHistory', JSON.stringify(sales));
-    }
-}
-
-// ==========================================
-// 3. DASHBOARD PRINCIPAL (KPIs + GRÁFICO HISTÓRICO)
-// ==========================================
 
 function initDashboard() {
-    const history = JSON.parse(localStorage.getItem('salesHistory')) || [];
-    const cust = JSON.parse(localStorage.getItem('customers')) || [];
-    const supp = JSON.parse(localStorage.getItem('suppliers')) || [];
-    
-    const validSales = history.filter(s => s.type === 'venta' && s.status === 'completada');
-
-    // -- CÁLCULOS KPI --
-    const salesToday = validSales.filter(s => isToday(s.date)).reduce((a, b) => a + b.total, 0);
-    const salesWeek = validSales.filter(s => isThisWeek(s.date)).reduce((a, b) => a + b.total, 0);
-    const salesMonth = validSales.filter(s => isThisMonth(s.date)).reduce((a, b) => a + b.total, 0);
-    
-    const debtCust = cust.reduce((a, b) => a + (parseFloat(b.balance) > 0 ? parseFloat(b.balance) : 0), 0);
-    const debtSupp = supp.reduce((a, b) => a + (parseFloat(b.balance) > 0 ? parseFloat(b.balance) : 0), 0);
-
-    // CÁLCULO DE MARGEN MENSUAL DESGLOSANDO COMBOS
-    let marginMonth = 0;
-    const monthSales = validSales.filter(s => isThisMonth(s.date));
-    
-    monthSales.forEach(s => {
-        let saleCost = 0;
-        if (s.items && Array.isArray(s.items)) {
-            s.items.forEach(item => {
-                if (item.isCombo) {
-                    // Costo del combo = suma (costo producto * cant en combo) * cant combos vendidos
-                    item.comboItems.forEach(ci => {
-                        saleCost += (parseFloat(ci.cost || 0) * ci.qty * item.qty);
-                    });
-                } else {
-                    saleCost += (parseFloat(item.cost || 0) * item.qty);
-                }
-            });
-        }
-        marginMonth += (s.total - saleCost);
-    });
-
-    // -- RENDER DOM --
-    const setVal = (id, val) => {
-        const el = document.getElementById(id);
-        if(el) el.innerText = `$ ${formatMoney(val)}`;
+    const db = {
+        sales: JSON.parse(localStorage.getItem('salesHistory')) || [],
+        returns: JSON.parse(localStorage.getItem('returns')) || [],
+        products: JSON.parse(localStorage.getItem('products')) || [],
+        expenses: JSON.parse(localStorage.getItem('expenseHistory')) || [],
+        losses: JSON.parse(localStorage.getItem('losses')) || [],
+        balances: JSON.parse(localStorage.getItem('balances')) || { cash: 0, bank: 0 },
+        customers: JSON.parse(localStorage.getItem('customers')) || [],
+        suppliers: JSON.parse(localStorage.getItem('suppliers')) || [],
+        expCats: JSON.parse(localStorage.getItem('expenseCategories')) || []
     };
 
-    setVal('rep-sales-today', salesToday);
-    setVal('rep-sales-week', salesWeek);
-    setVal('rep-sales-month', salesMonth);
-    setVal('rep-debt-cust', debtCust);
-    setVal('rep-debt-supp', debtSupp);
-    
-    const marginEl = document.getElementById('rep-margin');
-    if (marginEl) {
-        marginEl.innerText = `$ ${formatMoney(marginMonth)}`;
-        marginEl.style.color = marginMonth >= 0 ? 'var(--success)' : 'var(--danger)'; 
-    }
+    // Aplicar Filtro de Tiempo
+    const filteredSales = getFilteredData(db.sales.filter(s => s.type === 'venta' && s.status !== 'cancelada'), 'date');
+    const filteredReturns = getFilteredData(db.returns, 'date');
+    const filteredExpenses = getFilteredData(db.expenses, 'date');
+    const filteredLosses = getFilteredData(db.losses, 'date');
 
-    renderTopProducts(validSales);
-    updateMainChart(validSales);
-}
+    // 1. CÁLCULO DE VENTAS Y COSTOS (COGS)
+    let totalSalesPeriod = 0;
+    let totalCogsPeriod = 0;
+    let qtySalesPeriod = filteredSales.length;
+    let prodStats = {}, rubroStats = {};
+    let salesToday = 0;
 
-// ==========================================
-// 4. TOP PRODUCTOS (Desglosando Combos)
-// ==========================================
+    // Ventas de hoy siempre se muestran fijas
+    db.sales.filter(s => s.type === 'venta' && isToday(s.date) && s.status !== 'cancelada').forEach(s => salesToday += s.total);
 
-function renderTopProducts(sales) {
-    const list = document.getElementById('top-products-list');
-    if (!list) return;
+    filteredSales.forEach(s => {
+        totalSalesPeriod += s.total;
 
-    const stats = {};
-    const allProducts = JSON.parse(localStorage.getItem('products')) || [];
+        s.items.forEach(item => {
+            const netQty = item.qty - (item.returnedQty || 0);
+            if (netQty <= 0) return;
 
-    sales.forEach(sale => {
-        sale.items.forEach(item => {
             if (item.isCombo) {
-                // Desarmar Combo y sumar individualidades
                 item.comboItems.forEach(ci => {
-                    if(!stats[ci.id]) {
-                        const p = allProducts.find(prod => prod.id === ci.id);
-                        stats[ci.id] = { name: ci.name, qty: 0, profit: 0, cost: ci.cost || (p ? p.cost : 0) };
-                    }
-                    const totalQtySold = ci.qty * item.qty; // (Cant que trae el combo) * (Combos vendidos)
-                    stats[ci.id].qty += totalQtySold;
-                    // Ganancia = (Precio Proporcional Asignado - Costo Original) * Cantidad
-                    stats[ci.id].profit += (ci.proportionalPrice - stats[ci.id].cost) * totalQtySold;
+                    const p = db.products.find(prod => prod.id === ci.id);
+                    const r = p && p.rubro ? p.rubro : 'Sin Rubro';
+                    const c = ci.cost || (p ? p.cost : 0);
+                    const qtyTotal = ci.qty * netQty;
+                    const subTotalVenta = ci.proportionalPrice * qtyTotal;
+
+                    totalCogsPeriod += (c * qtyTotal);
+                    rubroStats[r] = (rubroStats[r] || 0) + subTotalVenta;
+
+                    if(!prodStats[ci.id]) prodStats[ci.id] = { name: ci.name, qty: 0, profit: 0, cost: c };
+                    prodStats[ci.id].qty += qtyTotal;
+                    prodStats[ci.id].profit += (ci.proportionalPrice - c) * qtyTotal;
                 });
             } else {
-                // Producto normal
-                if(!stats[item.id]) {
-                    const p = allProducts.find(prod => prod.id === item.id);
-                    stats[item.id] = { name: item.name, qty: 0, profit: 0, cost: item.cost || (p ? p.cost : 0) };
-                }
-                stats[item.id].qty += item.qty;
-                stats[item.id].profit += (item.price - stats[item.id].cost) * item.qty;
+                const p = db.products.find(prod => prod.id === item.id);
+                const r = p && p.rubro ? p.rubro : 'Sin Rubro';
+                const c = item.cost || (p ? p.cost : 0);
+                const subTotalVenta = (item.price || 0) * netQty;
+
+                totalCogsPeriod += (c * netQty);
+                rubroStats[r] = (rubroStats[r] || 0) + subTotalVenta;
+
+                if(!prodStats[item.id]) prodStats[item.id] = { name: item.name, qty: 0, profit: 0, cost: c };
+                prodStats[item.id].qty += netQty;
+                prodStats[item.id].profit += (item.price - c) * netQty;
             }
         });
     });
 
-    const sorted = Object.values(stats).sort((a, b) => b[topType] - a[topType]).slice(0, 5);
-    list.innerHTML = '';
-    
-    if (sorted.length === 0) {
-        list.innerHTML = '<li style="text-align:center; color:#999;">Sin datos aún</li>';
-        return;
-    }
-
-    sorted.forEach(p => {
-        list.innerHTML += `<li>
-            <span>${p.name}</span>
-            <strong>${topType === 'qty' ? p.qty + ' un.' : '$ ' + formatMoney(p.profit)}</strong>
-        </li>`;
+    // Restar devoluciones monetarias
+    filteredReturns.forEach(r => {
+        totalSalesPeriod -= r.totalRefund;
+        if (isToday(r.date)) salesToday -= r.totalRefund;
     });
+
+    // 2. GASTOS Y MERMAS
+    const totalExpensesPeriod = filteredExpenses.reduce((a,b) => a + b.amount, 0);
+    const totalLossesPeriod = filteredLosses.reduce((a,b) => a + b.lossValue, 0);
+
+    // 3. RESULTADO NETO
+    const netProfitPeriod = totalSalesPeriod - totalCogsPeriod - totalExpensesPeriod - totalLossesPeriod;
+
+    // 4. INVENTARIO ACTUAL
+    let stockCost = 0, stockPrice = 0;
+    db.products.filter(p => p.active !== false && p.stock > 0).forEach(p => {
+        stockCost += (p.cost * p.stock);
+        stockPrice += (p.price * p.stock);
+    });
+
+    // 5. FINANZAS ACTUALES
+    const debtCust = db.customers.reduce((a, b) => a + (parseFloat(b.balance) > 0 ? parseFloat(b.balance) : 0), 0);
+    const debtSupp = db.suppliers.reduce((a, b) => a + (parseFloat(b.balance) > 0 ? parseFloat(b.balance) : 0), 0);
+
+    // 6. TOPS
+    const sortedProds = Object.values(prodStats).sort((a,b) => b[topType] - a[topType]);
+    const topProd = sortedProds[0];
+    const topRubro = Object.entries(rubroStats).sort((a,b) => b[1] - a[1])[0];
+
+    // ==========================================
+    // ACTUALIZACIÓN DEL DOM
+    // ==========================================
+
+    // Pestaña: DASHBOARD
+    document.getElementById('rep-sales-today').innerText = `$ ${formatMoney(Math.max(salesToday, 0))}`;
+    document.getElementById('rep-sales-period').innerText = `$ ${formatMoney(totalSalesPeriod)}`;
+    document.getElementById('rep-margin').innerText = `$ ${formatMoney(netProfitPeriod)}`;
+    document.getElementById('rep-margin').style.color = netProfitPeriod >= 0 ? 'var(--success)' : 'var(--danger)';
+    document.getElementById('rep-debt-cust').innerText = `$ ${formatMoney(debtCust)}`;
+    document.getElementById('rep-debt-supp').innerText = `$ ${formatMoney(debtSupp)}`;
+
+    // Pestaña: ESTADÍSTICAS
+    document.getElementById('st-sales-total').innerText = `$ ${formatMoney(totalSalesPeriod)}`;
+    document.getElementById('st-cost-total').innerText = `$ ${formatMoney(totalCogsPeriod)}`;
+    document.getElementById('st-expenses-total').innerText = `$ ${formatMoney(totalExpensesPeriod)}`;
+    document.getElementById('st-net-profit').innerText = `$ ${formatMoney(netProfitPeriod)}`;
+    document.getElementById('st-net-profit').style.color = netProfitPeriod >= 0 ? 'var(--success)' : 'var(--danger)';
+
+    // Pestaña: INDIVIDUAL (NUEVA)
+    document.getElementById('ind-stock-cost').innerText = `$ ${formatMoney(stockCost)}`;
+    document.getElementById('ind-stock-price').innerText = `$ ${formatMoney(stockPrice)}`;
+    document.getElementById('ind-stock-profit').innerText = `$ ${formatMoney(stockPrice - stockCost)}`;
+    document.getElementById('ind-ticket-avg').innerText = `$ ${formatMoney(qtySalesPeriod > 0 ? totalSalesPeriod / qtySalesPeriod : 0)}`;
+    document.getElementById('ind-top-prod').innerText = topProd ? `${topProd.name} (${topProd.qty} un.)` : '-';
+    document.getElementById('ind-top-rubro').innerText = topRubro ? topRubro[0] : '-';
+    
+    document.getElementById('ind-cash').innerText = `$ ${formatMoney(db.balances.cash)}`;
+    document.getElementById('ind-bank').innerText = `$ ${formatMoney(db.balances.bank)}`;
+    document.getElementById('ind-ar').innerText = `$ ${formatMoney(debtCust)}`;
+    document.getElementById('ind-ap').innerText = `$ ${formatMoney(debtSupp)}`;
+    document.getElementById('ind-exp-total').innerText = `$ ${formatMoney(totalExpensesPeriod)}`;
+    document.getElementById('ind-loss-total').innerText = `$ ${formatMoney(totalLossesPeriod)}`;
+
+    // GRÁFICOS
+    renderTopProductsList(sortedProds.slice(0,5));
+    renderLineChart(db.sales, db.returns); 
+    renderRubroChart(rubroStats);
+    renderCategoryChart(filteredExpenses, db.expCats);
 }
+
+// ==========================================
+// 4. FUNCIONES DE UI Y GRÁFICOS (CHART.JS)
+// ==========================================
 
 function toggleTopType() {
     topType = (topType === 'qty') ? 'profit' : 'qty';
     const btn = document.getElementById('btn-toggle-top');
     if(btn) btn.innerText = (topType === 'qty') ? 'Ver por Ganancia' : 'Ver por Cantidad';
-    initDashboard();
+    initDashboard(); 
 }
 
-/**
- * GRÁFICO DE LÍNEA: Histórico de Ventas
- */
-function updateMainChart(salesData) {
+function renderTopProductsList(sortedArray) {
+    const list = document.getElementById('top-products-list');
+    list.innerHTML = '';
+    if (sortedArray.length === 0) { list.innerHTML = '<li style="text-align:center; color:#999;">Sin datos aún</li>'; return; }
+    sortedArray.forEach(p => {
+        list.innerHTML += `<li><span>${p.name}</span><strong>${topType === 'qty' ? p.qty + ' un.' : '$ ' + formatMoney(p.profit)}</strong></li>`;
+    });
+}
+
+function renderLineChart(allSales, allReturns) {
     const canvas = document.getElementById('mainChart');
     if (!canvas) return;
-    
-    if (canvas.parentNode) {
-        canvas.parentNode.style.height = '280px'; 
-        canvas.parentNode.style.position = 'relative';
-    }
-
     const ctx = canvas.getContext('2d');
     
-    let labels = [];
-    let data = [];
+    let labels = [], data = [];
     const today = new Date();
-    const daysToShow = 30;
 
-    for (let i = daysToShow - 1; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(today.getDate() - i);
-        const loopDateStr = d.toLocaleDateString(); 
-        
+    for (let i = 29; i >= 0; i--) {
+        const d = new Date(); d.setDate(today.getDate() - i);
         labels.push(`${d.getDate()}/${d.getMonth() + 1}`);
 
-        const dayTotal = salesData.filter(s => {
-            const saleDate = new Date(s.date).toLocaleDateString();
-            return saleDate === loopDateStr;
-        }).reduce((sum, sale) => sum + sale.total, 0);
-
-        data.push(dayTotal);
+        let daySales = allSales.filter(s => s.type === 'venta' && s.status !== 'cancelada' && parseSafeDate(s.date).toLocaleDateString() === d.toLocaleDateString()).reduce((sum, sale) => sum + sale.total, 0);
+        let dayReturns = allReturns.filter(r => parseSafeDate(r.date).toLocaleDateString() === d.toLocaleDateString()).reduce((sum, ret) => sum + ret.totalRefund, 0);
+        
+        data.push(Math.max(daySales - dayReturns, 0));
     }
 
     if (mainChart) mainChart.destroy();
-    
     mainChart = new Chart(ctx, {
         type: 'line', 
-        data: {
-            labels,
-            datasets: [{ 
-                label: 'Ventas', data, 
-                backgroundColor: (context) => {
-                    const ctx = context.chart.ctx;
-                    const gradient = ctx.createLinearGradient(0, 0, 0, 300);
-                    gradient.addColorStop(0, 'rgba(52, 152, 219, 0.4)');
-                    gradient.addColorStop(1, 'rgba(52, 152, 219, 0.0)');
-                    return gradient;
-                },
-                borderColor: '#3498db', borderWidth: 2, pointRadius: 0, pointHoverRadius: 6, fill: true, tension: 0.4
-            }]
-        },
-        options: { 
-            responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
-            plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => 'Ventas: $ ' + formatMoney(c.parsed.y) } } },
-            scales: { 
-                x: { grid: { display: false }, ticks: { maxTicksLimit: 8, font: { size: 10 } } },
-                y: { beginAtZero: true, grid: { borderDash: [5, 5], color: '#f0f0f0' }, ticks: { callback: (val) => '$' + formatCompactNumber(val), font: { size: 10 } } } 
-            } 
-        }
+        data: { labels, datasets: [{ label: 'Ventas Netas ($)', data, borderColor: '#3498db', backgroundColor: 'rgba(52, 152, 219, 0.1)', borderWidth: 2, fill: true, tension: 0.3 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { callback: (val) => '$' + formatCompactNumber(val) } } } }
     });
 }
 
-// ==========================================
-// 5. ESTADÍSTICAS DETALLADAS Y GRÁFICOS POR RUBRO
-// ==========================================
-
-function initStats() {
-    const history = JSON.parse(localStorage.getItem('salesHistory')) || [];
-    const expenses = JSON.parse(localStorage.getItem('expenseHistory')) || [];
-    const allProducts = JSON.parse(localStorage.getItem('products')) || [];
-
-    const validSales = history.filter(s => s.type === 'venta' && s.status === 'completada');
-
-    const totalSales = validSales.reduce((a, b) => a + b.total, 0);
-    const totalExp = expenses.reduce((a, b) => a + b.amount, 0);
-    
-    let totalCost = 0;
-    validSales.forEach(s => {
-        s.items.forEach(item => {
-            if (item.isCombo) {
-                item.comboItems.forEach(ci => {
-                    totalCost += (parseFloat(ci.cost || 0) * ci.qty * item.qty);
-                });
-            } else {
-                totalCost += (parseFloat(item.cost || 0) * item.qty);
-            }
-        });
-    });
-
-    const netProfit = totalSales - totalCost - totalExp;
-
-    document.getElementById('st-sales-total').innerText = `$ ${formatMoney(totalSales)}`;
-    document.getElementById('st-cost-total').innerText = `$ ${formatMoney(totalCost)}`;
-    document.getElementById('st-expenses-total').innerText = `$ ${formatMoney(totalExp)}`;
-    
-    const profitEl = document.getElementById('st-net-profit');
-    if (profitEl) {
-        profitEl.innerText = `$ ${formatMoney(netProfit)}`;
-        profitEl.style.color = netProfit >= 0 ? 'var(--success)' : 'var(--danger)';
-    }
-
-    renderRubroChart(validSales, allProducts);
-    renderCategoryChart(expenses);
-}
-
-/**
- * GRÁFICO DE DONA: Ventas por Rubro (Desglosando Combos)
- */
-function renderRubroChart(sales, productsDb) {
+function renderRubroChart(rubroStats) {
     const canvas = document.getElementById('rubroChart');
     if (!canvas) return;
-    
-    if (canvas.parentNode) {
-        canvas.parentNode.style.height = '250px';
-        canvas.parentNode.style.position = 'relative';
-    }
-
     const ctx = canvas.getContext('2d');
-    const rubros = {};
-
-    sales.forEach(s => {
-        s.items.forEach(item => {
-            if (item.isCombo) {
-                // El combo NO TIENE rubro en sí mismo, se le asigna el dinero a los rubros de lo que lleva adentro.
-                item.comboItems.forEach(ci => {
-                    const p = productsDb.find(prod => prod.id === ci.id);
-                    const r = p && p.rubro ? p.rubro : 'Sin Rubro';
-                    // Dinero sumado al rubro = (Precio Proporcional) * (Cant en combo) * (Combos vendidos)
-                    const subtotalProporcional = ci.proportionalPrice * ci.qty * item.qty;
-                    rubros[r] = (rubros[r] || 0) + subtotalProporcional;
-                });
-            } else {
-                // Producto normal
-                const p = productsDb.find(prod => prod.id === item.id);
-                const r = p && p.rubro ? p.rubro : 'Sin Rubro';
-                rubros[r] = (rubros[r] || 0) + item.subtotal;
-            }
-        });
-    });
-
-    const labels = Object.keys(rubros);
-    const data = Object.values(rubros);
-
-    if(rubroChart) rubroChart.destroy();
     
+    const sortedRubros = Object.entries(rubroStats).sort((a,b) => b[1] - a[1]).slice(0, 6); 
+    const labels = sortedRubros.map(r => r[0]);
+    const data = sortedRubros.map(r => r[1]);
+
+    if (rubroChart) rubroChart.destroy();
     rubroChart = new Chart(ctx, {
         type: 'doughnut',
-        data: {
-            labels: labels,
-            datasets: [{ 
-                data: data, 
-                backgroundColor: ['#2ecc71', '#3498db', '#9b59b6', '#f1c40f', '#e74c3c', '#95a5a6', '#34495e', '#16a085'],
-                borderWidth: 2, hoverOffset: 4
-            }]
-        },
-        options: {
-            responsive: true, maintainAspectRatio: false, cutout: '60%',
-            plugins: {
-                legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 }, padding: 10 } },
-                tooltip: { callbacks: { label: function(context) { return ` ${context.label}: $${formatMoney(context.parsed)}`; } } }
-            }
-        }
+        data: { labels, datasets: [{ data, backgroundColor: ['#2ecc71', '#3498db', '#9b59b6', '#f1c40f', '#e74c3c', '#34495e'], borderWidth: 2, hoverOffset: 4 }] },
+        options: { responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 }, padding: 10 } }, tooltip: { callbacks: { label: function(c) { return ` ${c.label}: $${formatMoney(c.parsed)}`; } } } } }
     });
 }
 
-/**
- * GRÁFICO DE TORTA: Gastos por Categoría
- */
-function renderCategoryChart(expenses) {
+function renderCategoryChart(expenses, expCatsDb) {
     const canvas = document.getElementById('categoryChart');
     if (!canvas) return;
-    
-    if (canvas.parentNode) {
-        canvas.parentNode.style.height = '250px';
-        canvas.parentNode.style.position = 'relative';
-    }
-
     const ctx = canvas.getContext('2d');
+    
     const cats = {};
+    expenses.forEach(e => { const c = e.category || 'General'; cats[c] = (cats[c] || 0) + e.amount; });
 
-    expenses.forEach(e => { 
-        const c = e.category || 'General';
-        cats[c] = (cats[c] || 0) + e.amount; 
+    const labels = Object.keys(cats);
+    const data = Object.values(cats);
+    const bgColors = labels.map(labelName => {
+        const cat = expCatsDb.find(c => c.name === labelName);
+        return cat ? cat.color : '#95a5a6';
     });
 
     if(categoryChart) categoryChart.destroy();
-    
     categoryChart = new Chart(ctx, {
         type: 'pie',
-        data: {
-            labels: Object.keys(cats),
-            datasets: [{ 
-                data: Object.values(cats), 
-                backgroundColor: ['#e74c3c','#f1c40f','#3498db','#9b59b6','#1abc9c', '#e67e22'],
-                borderWidth: 2, hoverOffset: 4
-            }]
-        },
-        options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: {
-                legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 }, padding: 10 } },
-                tooltip: { callbacks: { label: function(context) { return ` ${context.label}: $${formatMoney(context.parsed)}`; } } }
-            }
-        }
+        data: { labels, datasets: [{ data, backgroundColor: bgColors, borderWidth: 2, hoverOffset: 4 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 }, padding: 10 } }, tooltip: { callbacks: { label: function(c) { return ` ${c.label}: $${formatMoney(c.parsed)}`; } } } } }
     });
 }

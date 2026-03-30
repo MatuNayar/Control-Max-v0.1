@@ -5,6 +5,8 @@
  * - Detección automática de OFERTAS y COMBOS
  * - Sistema de Presupuestos (Guardar, Cargar, Imprimir PDF)
  * - Atajos de teclado (F1, F2, F4, Enter)
+ * - Historial de Ventas con ID único
+ * - Sistema de Devoluciones Avanzado
  */
 
 // ==========================================
@@ -15,7 +17,34 @@ let activeSessionIndex = 0;
 let selectedProductToScan = null; // Almacena temporalmente el producto/combo a agregar
 
 // ==========================================
-// 1. INICIALIZACIÓN Y NAVEGACIÓN
+// 1. IDENTIFICACIÓN Y MIGRACIÓN DE VENTAS
+// ==========================================
+
+function generateSaleId() {
+    let config = JSON.parse(localStorage.getItem('config')) || { saleCounter: 0 };
+    config.saleCounter += 1;
+    localStorage.setItem('config', JSON.stringify(config));
+    return 'V-' + String(config.saleCounter).padStart(6, '0');
+}
+
+// Migrar ventas antiguas para que tengan ID y status
+function migrateSalesSystem() {
+    let sales = JSON.parse(localStorage.getItem('salesHistory')) || [];
+    let changed = false;
+    sales.forEach(s => {
+        if (!s.saleId) { s.saleId = generateSaleId(); changed = true; }
+        if (!s.status) { s.status = 'completada'; changed = true; }
+        // Asegurar que tengan el contador de devueltos
+        if (s.items) {
+            s.items.forEach(i => { if (typeof i.returnedQty === 'undefined') { i.returnedQty = 0; changed = true; } });
+        }
+    });
+    if (changed) localStorage.setItem('salesHistory', JSON.stringify(sales));
+}
+migrateSalesSystem(); // Ejecutar al cargar el script
+
+// ==========================================
+// 2. INICIALIZACIÓN Y NAVEGACIÓN
 // ==========================================
 
 function showSubTabSales(tabId) {
@@ -35,6 +64,9 @@ function showSubTabSales(tabId) {
     if (tabId === 'quotes') {
         renderQuotes();
     }
+    if (tabId === 'history') {
+        renderSalesHistory();
+    }
 }
 
 function updateSalesDropdown() {
@@ -45,7 +77,7 @@ function updateSalesDropdown() {
 }
 
 // ==========================================
-// 2. MÚLTIPLES CARRITOS (SESIONES)
+// 3. MÚLTIPLES CARRITOS (SESIONES)
 // ==========================================
 
 function renderCartTabs() {
@@ -99,7 +131,7 @@ function removeCart(index) {
 }
 
 // ==========================================
-// 3. BUSCADOR INTELIGENTE (OFERTAS Y COMBOS)
+// 4. BUSCADOR INTELIGENTE (OFERTAS Y COMBOS)
 // ==========================================
 
 document.getElementById('pos-search')?.addEventListener('input', function(e) {
@@ -112,19 +144,17 @@ document.getElementById('pos-search')?.addEventListener('input', function(e) {
         return;
     }
 
-    // Traer bases de datos
     const dbProducts = JSON.parse(localStorage.getItem('products')) || [];
     const dbCombos = JSON.parse(localStorage.getItem('combos')) || [];
     const dbOffers = JSON.parse(localStorage.getItem('offers')) || [];
     const today = new Date().setHours(0,0,0,0);
 
-    // Filtrar coincidencias
     const filteredProds = dbProducts.filter(p => p.active !== false && p.stock > 0 && (p.name.toLowerCase().includes(val) || p.code.toLowerCase().includes(val)));
     const filteredCombos = dbCombos.filter(c => c.name.toLowerCase().includes(val) || c.code.toLowerCase().includes(val));
 
     resultBox.innerHTML = '';
     
-    // 1. Mostrar Combos primero
+    // Combos
     filteredCombos.forEach(c => {
         const li = document.createElement('li');
         li.innerHTML = `<strong style="color:#8e44ad;">[COMBO] ${c.code}</strong> - ${c.name} | $${formatMoney(c.finalPrice)}`;
@@ -132,12 +162,11 @@ document.getElementById('pos-search')?.addEventListener('input', function(e) {
         resultBox.appendChild(li);
     });
 
-    // 2. Mostrar Productos y verificar Ofertas
+    // Productos y Ofertas
     filteredProds.forEach(p => {
         let finalP = p.price;
         let isOffer = false;
         
-        // Revisar si hay oferta activa
         const activeOffer = dbOffers.find(o => o.productId === p.id && new Date(o.expiry).getTime() >= today);
         if(activeOffer) {
             isOffer = true;
@@ -149,7 +178,6 @@ document.getElementById('pos-search')?.addEventListener('input', function(e) {
         const li = document.createElement('li');
         li.innerHTML = `<strong>${p.code}</strong> - ${p.name} | ${isOffer ? `<span style="color:var(--success); font-weight:bold;">$${formatMoney(finalP)} (OFERTA)</span>` : `$${formatMoney(p.price)}`} (Stock: ${p.stock})`;
         
-        // Guardamos temporalmente el precio que se usará al añadir al carrito
         p._activePrice = finalP; 
         p._isOffer = isOffer;
 
@@ -161,20 +189,18 @@ document.getElementById('pos-search')?.addEventListener('input', function(e) {
     else resultBox.style.display = 'none';
 });
 
-// Comportamiento del Escáner de Código de Barras (Presiona Enter rápido)
+// Comportamiento del Escáner (Presiona Enter rápido)
 document.getElementById('pos-search')?.addEventListener('keydown', function(e) {
     if (e.key === 'Enter') {
         e.preventDefault();
         const val = this.value.trim().toLowerCase();
         document.getElementById('pos-autocomplete').style.display = 'none';
 
-        // Si ya lo seleccionó con click
         if (selectedProductToScan) { addCurrentToCart(); return; }
 
         const dbProducts = JSON.parse(localStorage.getItem('products')) || [];
         const dbCombos = JSON.parse(localStorage.getItem('combos')) || [];
         
-        // Buscar coincidencia exacta en Combos
         const exactCombo = dbCombos.find(c => c.code.toLowerCase() === val);
         if(exactCombo) { 
             selectItemForCart(exactCombo, true); 
@@ -182,10 +208,8 @@ document.getElementById('pos-search')?.addEventListener('keydown', function(e) {
             return; 
         }
 
-        // Buscar coincidencia exacta en Productos
         const exactMatch = dbProducts.find(p => p.code.toLowerCase() === val && p.active !== false);
         if (exactMatch) {
-            // Aplicar oferta si existe
             const dbOffers = JSON.parse(localStorage.getItem('offers')) || [];
             const today = new Date().setHours(0,0,0,0);
             const activeOffer = dbOffers.find(o => o.productId === exactMatch.id && new Date(o.expiry).getTime() >= today);
@@ -216,11 +240,11 @@ document.getElementById('pos-search')?.addEventListener('keydown', function(e) {
 function selectItemForCart(item, isCombo) {
     document.getElementById('pos-search').value = item.name;
     selectedProductToScan = { ...item, isCombo: isCombo };
-    document.getElementById('pos-qty').focus(); // Saltar a cantidad
+    document.getElementById('pos-qty').focus(); 
 }
 
 // ==========================================
-// 4. GESTIÓN DEL CARRITO
+// 5. GESTIÓN DEL CARRITO
 // ==========================================
 
 function addCurrentToCart() {
@@ -233,22 +257,20 @@ function addCurrentToCart() {
     const activeCart = posSessions[activeSessionIndex].items;
     const dbProducts = JSON.parse(localStorage.getItem('products')) || [];
     
-    // VALIDAR STOCK (Especial para combos)
+    // VALIDAR STOCK 
     if (selectedProductToScan.isCombo) {
         let canAdd = true;
         let missingProd = '';
         selectedProductToScan.items.forEach(ci => {
             const prodDB = dbProducts.find(p => p.id === ci.id);
-            // Stock necesario = cantidad del item en el combo * combos a llevar
             const requiredStock = ci.qty * qty; 
             if (!prodDB || prodDB.stock < requiredStock) { 
                 canAdd = false; 
                 missingProd = prodDB ? prodDB.name : ci.name;
             }
         });
-        if(!canAdd) return alert(`Stock insuficiente de "${missingProd}" para armar la cantidad deseada de este combo.`);
+        if(!canAdd) return alert(`Stock insuficiente de "${missingProd}" para armar el combo.`);
     } else {
-        // Validación normal
         const inCart = activeCart.find(item => item.id === selectedProductToScan.id && !item.isCombo);
         const qtyInCart = inCart ? inCart.qty : 0;
         if (selectedProductToScan.stock < (qtyInCart + qty)) {
@@ -257,8 +279,6 @@ function addCurrentToCart() {
     }
 
     const priceToUse = selectedProductToScan.isCombo ? selectedProductToScan.finalPrice : selectedProductToScan._activePrice;
-    
-    // Buscar si ya existe en el carrito
     const existIdx = activeCart.findIndex(i => i.id === selectedProductToScan.id && i.isCombo === selectedProductToScan.isCombo);
     
     if (existIdx !== -1) {
@@ -272,14 +292,14 @@ function addCurrentToCart() {
             code: selectedProductToScan.code,
             name: selectedProductToScan.name,
             price: priceToUse,
-            cost: selectedProductToScan.cost || 0, // En combos esto es el cost total del combo
+            cost: selectedProductToScan.cost || 0,
             qty: qty,
+            returnedQty: 0, // Campo necesario para devoluciones
             subtotal: priceToUse * qty,
             comboItems: selectedProductToScan.isCombo ? selectedProductToScan.items : null
         });
     }
 
-    // Resetear UI
     document.getElementById('pos-search').value = '';
     qtyInput.value = 1;
     selectedProductToScan = null;
@@ -327,7 +347,7 @@ function removeFromActiveCart(index) {
 }
 
 // ==========================================
-// 5. ATAJOS DE TECLADO GLOBALES
+// 6. ATAJOS DE TECLADO GLOBALES
 // ==========================================
 document.addEventListener('keydown', function(e) {
     const salesSection = document.getElementById('sales-section');
@@ -345,7 +365,7 @@ document.addEventListener('keydown', function(e) {
 });
 
 // ==========================================
-// 6. SISTEMA DE PRESUPUESTOS
+// 7. SISTEMA DE PRESUPUESTOS
 // ==========================================
 
 function saveAsQuote() {
@@ -390,7 +410,7 @@ function renderQuotes() {
             <td>${q.items.length} items</td>
             <td style="font-weight:bold; color:var(--primary);">$ ${formatMoney(q.total)}</td>
             <td>
-                <button class="btn-secondary" onclick="printQuote(${q.id})" title="Imprimir Ticket" style="padding:5px; font-size:0.9rem;"><i class="fas fa-print"></i></button>
+                <button class="btn-secondary" onclick="printQuote(${q.id})" title="Imprimir" style="padding:5px; font-size:0.9rem;"><i class="fas fa-print"></i></button>
                 <button class="btn-primary" onclick="loadQuoteToCart(${q.id})" title="Pasar a Caja" style="padding:5px; font-size:0.9rem;"><i class="fas fa-shopping-cart"></i></button>
                 <button class="btn-delete" onclick="deleteQuote(${q.id})" title="Eliminar" style="padding:5px; font-size:0.9rem;"><i class="fas fa-trash"></i></button>
             </td>
@@ -432,12 +452,7 @@ function printQuote(id) {
     const printWindow = window.open('', '_blank', 'width=400,height=600');
     let itemsHTML = '';
     q.items.forEach(i => {
-        itemsHTML += `
-            <tr style="border-bottom: 1px dashed #ccc;">
-                <td style="padding: 5px 0;">${i.qty}x ${i.name}</td>
-                <td style="text-align: right;">$${formatMoney(i.subtotal)}</td>
-            </tr>
-        `;
+        itemsHTML += `<tr style="border-bottom: 1px dashed #ccc;"><td style="padding: 5px 0;">${i.qty}x ${i.name}</td><td style="text-align: right;">$${formatMoney(i.subtotal)}</td></tr>`;
     });
 
     const htmlContent = `
@@ -461,7 +476,7 @@ function printQuote(id) {
 }
 
 // ==========================================
-// 7. PROCESO DE COBRO (CHECKOUT)
+// 8. PROCESO DE COBRO (CHECKOUT)
 // ==========================================
 
 function toggleCombinedPayment() {
@@ -472,7 +487,7 @@ function toggleCombinedPayment() {
 
 function checkout() {
     const cart = posSessions[activeSessionIndex].items;
-    if (cart.length === 0) return alert("El carrito está vacío. (F2 para buscar)");
+    if (cart.length === 0) return alert("El carrito está vacío.");
 
     const clientInput = document.getElementById('sales-client-search');
     let clientName = clientInput.value.trim() || "Consumidor Final";
@@ -511,34 +526,32 @@ function checkout() {
         client.history.push({ date: new Date().toLocaleString(), type: 'DEUDA', amount: pCtaCte, note: 'Compra en POS' });
     }
 
-    // Impacto Financiero
+    // Impacto Financiero y de Stock
     if (typeof updateBalancesStorage === 'function') updateBalancesStorage(pCash, pBank);
     
-    // DESCUENTO DE STOCK (Normal y Desglose de Combos)
     let dbProducts = JSON.parse(localStorage.getItem('products')) || [];
     cart.forEach(item => {
         if (item.isCombo) {
-            // Desglosar combo
             item.comboItems.forEach(ci => {
                 const prod = dbProducts.find(p => p.id === ci.id);
                 if(prod) prod.stock -= (ci.qty * item.qty);
             });
         } else {
-            // Producto normal o en oferta
             const prod = dbProducts.find(p => p.id === item.id);
             if(prod) prod.stock -= item.qty;
         }
     });
 
-    // Guardar Historial de Venta
+    // Guardar Venta
     const saleRecord = {
         id: Date.now(),
+        saleId: generateSaleId(), // NUEVO ID CORRELATIVO
         date: new Date().toISOString(),
         type: 'venta',
         status: 'completada',
         client: clientName,
         clientId: client ? client.id : null,
-        items: [...cart], // Guarda todo estructurado perfectamente para el Dashboard
+        items: [...cart], 
         total: total,
         payments: { cash: pCash, bank: pBank, ctacte: pCtaCte }
     };
@@ -546,26 +559,225 @@ function checkout() {
     let salesHistory = JSON.parse(localStorage.getItem('salesHistory')) || [];
     salesHistory.push(saleRecord);
 
-    // Guardar en Base de Datos
     localStorage.setItem('products', JSON.stringify(dbProducts));
     localStorage.setItem('customers', JSON.stringify(customers));
     localStorage.setItem('salesHistory', JSON.stringify(salesHistory));
 
-    if (typeof addLog === 'function') addLog('VENTAS', 'VENTA', `Venta a ${clientName} por $ ${formatMoney(total)}`, saleRecord, saleRecord.id);
+    if (typeof addLog === 'function') addLog('VENTAS', 'VENTA', `Venta ${saleRecord.saleId} por $ ${formatMoney(total)}`, saleRecord, saleRecord.id);
 
-    alert(`✅ Venta procesada correctamente.\nTotal: $ ${formatMoney(total)}`);
+    alert(`✅ Venta procesada correctamente.\nID: ${saleRecord.saleId}\nTotal: $ ${formatMoney(total)}`);
     
-    // Limpiar UI y Sesión actual
     posSessions[activeSessionIndex].items = [];
     document.getElementById('sales-client-search').value = '';
     document.getElementById('payment-method').value = 'cash';
     toggleCombinedPayment();
     renderActiveCart();
-    
     document.getElementById('pos-search').focus();
 
-    // Refrescar inventario global en memoria para que otras funciones lo vean
     if (typeof products !== 'undefined') products = dbProducts; 
-    
     if (typeof initDashboard === 'function') setTimeout(initDashboard, 50); 
+}
+
+// ==========================================
+// 9. HISTORIAL DE VENTAS Y DEVOLUCIONES
+// ==========================================
+
+function renderSalesHistory() {
+    const tbody = document.getElementById('sales-history-body');
+    if (!tbody) return;
+    
+    const start = document.getElementById('sh-date-start').value;
+    const end = document.getElementById('sh-date-end').value;
+    const search = document.getElementById('sh-search').value.toLowerCase();
+    
+    let sales = JSON.parse(localStorage.getItem('salesHistory')) || [];
+
+    const filtered = sales.filter(s => {
+        const date = s.date.split('T')[0];
+        const matchDate = (!start || date >= start) && (!end || date <= end);
+        const matchSearch = !search || 
+                            (s.saleId && s.saleId.toLowerCase().includes(search)) || 
+                            (s.client && s.client.toLowerCase().includes(search));
+        return matchDate && matchSearch && s.type === 'venta';
+    });
+
+    tbody.innerHTML = '';
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No se encontraron ventas.</td></tr>';
+        return;
+    }
+
+    [...filtered].reverse().forEach(s => {
+        const d = new Date(s.date);
+        
+        let statusBadge = '';
+        if(s.status === 'completada') statusBadge = '<span class="badge" style="background:#d4edda; color:#155724; border:1px solid #c3e6cb;">Completada</span>';
+        if(s.status === 'parcial') statusBadge = '<span class="badge" style="background:#fff3cd; color:#856404; border:1px solid #ffeeba;">Dev. Parcial</span>';
+        if(s.status === 'devuelta') statusBadge = '<span class="badge" style="background:#f8d7da; color:#721c24; border:1px solid #f5c6cb;">Devuelta</span>';
+
+        tbody.innerHTML += `
+            <tr>
+                <td><strong>${s.saleId}</strong></td>
+                <td>${d.toLocaleDateString()} ${d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+                <td>${s.client || 'Consumidor Final'}</td>
+                <td style="font-weight:bold; color:var(--primary);">$${formatMoney(s.total)}</td>
+                <td>${statusBadge}</td>
+                <td>
+                    <button class="btn-secondary" onclick="viewEventDetail(${s.id})" title="Ver Detalles" style="padding:4px 8px;"><i class="fas fa-eye"></i></button>
+                    ${s.status !== 'devuelta' ? `<button class="btn-delete" onclick="openReturnModal(${s.id})" title="Procesar Devolución" style="padding:4px 8px; border:1px solid var(--danger);"><i class="fas fa-undo"></i></button>` : ''}
+                </td>
+            </tr>
+        `;
+    });
+}
+
+// LÓGICA DE DEVOLUCIONES
+let currentReturnSale = null;
+
+function openReturnModal(id) {
+    let sales = JSON.parse(localStorage.getItem('salesHistory')) || [];
+    currentReturnSale = sales.find(s => s.id === id);
+    if (!currentReturnSale) return;
+
+    document.getElementById('ret-sale-id').innerText = currentReturnSale.saleId;
+    const tbody = document.getElementById('ret-items-body');
+    tbody.innerHTML = '';
+
+    currentReturnSale.items.forEach((item, index) => {
+        const available = item.qty - (item.returnedQty || 0);
+        if (available > 0) {
+            tbody.innerHTML += `
+                <tr>
+                    <td>${item.name} ${item.isCombo ? '(COMBO)' : ''}</td>
+                    <td>$${formatMoney(item.price)}</td>
+                    <td style="text-align:center;">${available} disp.</td>
+                    <td><input type="number" class="ret-qty-input" data-index="${index}" data-price="${item.price}" data-max="${available}" value="0" min="0" max="${available}" style="width:70px; text-align:center;" oninput="calcReturnTotal()"></td>
+                </tr>
+            `;
+        }
+    });
+
+    document.getElementById('ret-pay-cash').value = 0;
+    document.getElementById('ret-pay-bank').value = 0;
+    document.getElementById('ret-pay-ctacte').value = 0;
+    document.getElementById('ret-total-amount').innerText = "0.00";
+
+    document.getElementById('return-modal').style.display = 'flex';
+}
+
+function closeReturnModal() {
+    document.getElementById('return-modal').style.display = 'none';
+    currentReturnSale = null;
+}
+
+function calcReturnTotal() {
+    let total = 0;
+    document.querySelectorAll('.ret-qty-input').forEach(input => {
+        const qty = parseInt(input.value) || 0;
+        const price = parseFloat(input.getAttribute('data-price'));
+        total += (qty * price);
+    });
+    document.getElementById('ret-total-amount').innerText = formatMoney(total);
+    return total;
+}
+
+function processReturn() {
+    const totalToRefund = Math.round(calcReturnTotal() * 100) / 100;
+    if (totalToRefund <= 0) return alert("Debe seleccionar al menos un producto para devolver.");
+
+    const rCash = parseFloat(document.getElementById('ret-pay-cash').value) || 0;
+    const rBank = parseFloat(document.getElementById('ret-pay-bank').value) || 0;
+    const rCtaCte = parseFloat(document.getElementById('ret-pay-ctacte').value) || 0;
+    
+    const sumRefunds = Math.round((rCash + rBank + rCtaCte) * 100) / 100;
+
+    if (Math.abs(sumRefunds - totalToRefund) > 0.05) {
+        return alert(`ERROR: La suma de reintegros ($${sumRefunds}) no coincide con el total a devolver ($${totalToRefund}).`);
+    }
+
+    const retType = document.querySelector('input[name="ret-type"]:checked').value;
+    let dbProducts = JSON.parse(localStorage.getItem('products')) || [];
+    let losses = JSON.parse(localStorage.getItem('losses')) || [];
+    
+    let itemsReturned = [];
+    let totalOriginalQty = 0;
+    let totalCurrentReturned = 0;
+
+    // 1. PROCESAR PRODUCTOS Y STOCK
+    document.querySelectorAll('.ret-qty-input').forEach(input => {
+        const returnQty = parseInt(input.value) || 0;
+        const itemIndex = parseInt(input.getAttribute('data-index'));
+        const item = currentReturnSale.items[itemIndex];
+        
+        totalOriginalQty += item.qty;
+
+        if (returnQty > 0) {
+            item.returnedQty = (item.returnedQty || 0) + returnQty;
+            itemsReturned.push({ ...item, qtyReturned: returnQty });
+
+            // Lógica de Stock
+            if (item.isCombo) {
+                item.comboItems.forEach(ci => {
+                    const prod = dbProducts.find(p => p.id === ci.id);
+                    if (prod) {
+                        if (retType === 'normal') prod.stock += (ci.qty * returnQty);
+                        if (retType === 'defective') {
+                            losses.push({ id: Date.now()+Math.random(), date: new Date().toLocaleString(), productId: prod.id, productName: prod.name, qty: ci.qty * returnQty, reason: 'Devolución Defectuosa', lossValue: ci.cost * ci.qty * returnQty });
+                        }
+                    }
+                });
+            } else {
+                const prod = dbProducts.find(p => p.id === item.id);
+                if (prod) {
+                    if (retType === 'normal') prod.stock += returnQty;
+                    if (retType === 'defective') {
+                        losses.push({ id: Date.now()+Math.random(), date: new Date().toLocaleString(), productId: prod.id, productName: prod.name, qty: returnQty, reason: 'Devolución Defectuosa', lossValue: item.cost * returnQty });
+                    }
+                }
+            }
+        } else {
+            totalCurrentReturned += (item.returnedQty || 0); // Sumar lo que ya se había devuelto antes
+        }
+        totalCurrentReturned += returnQty;
+    });
+
+    // 2. ACTUALIZAR ESTADO VENTA
+    currentReturnSale.status = (totalCurrentReturned >= totalOriginalQty) ? 'devuelta' : 'parcial';
+
+    // 3. IMPACTO FINANCIERO
+    if (typeof updateBalancesStorage === 'function') updateBalancesStorage(-rCash, -rBank);
+
+    if (rCtaCte > 0 && currentReturnSale.clientId) {
+        let customers = JSON.parse(localStorage.getItem('customers')) || [];
+        let client = customers.find(c => c.id === currentReturnSale.clientId);
+        if (client) {
+            client.balance = Math.round((parseFloat(client.balance) - rCtaCte) * 100) / 100;
+            client.history.push({ date: new Date().toLocaleString(), type: 'PAGO', amount: rCtaCte, note: `Nota de Crédito por Devolución ${currentReturnSale.saleId}` });
+            localStorage.setItem('customers', JSON.stringify(customers));
+        }
+    }
+
+    // 4. GUARDAR REGISTROS
+    let returnsDb = JSON.parse(localStorage.getItem('returns')) || [];
+    returnsDb.push({
+        id: Date.now(), saleId: currentReturnSale.saleId, saleDbId: currentReturnSale.id,
+        items: itemsReturned, totalRefund: totalToRefund, distribution: { cash: rCash, bank: rBank, ctacte: rCtaCte },
+        type: retType, date: new Date().toISOString()
+    });
+
+    let salesHistory = JSON.parse(localStorage.getItem('salesHistory')) || [];
+    const sIndex = salesHistory.findIndex(s => s.id === currentReturnSale.id);
+    if (sIndex !== -1) salesHistory[sIndex] = currentReturnSale;
+
+    localStorage.setItem('salesHistory', JSON.stringify(salesHistory));
+    localStorage.setItem('products', JSON.stringify(dbProducts));
+    localStorage.setItem('losses', JSON.stringify(losses));
+    localStorage.setItem('returns', JSON.stringify(returnsDb));
+
+    if (typeof addLog === 'function') addLog('VENTAS', 'DEVOLUCION', `Devolución $${totalToRefund} (Venta ${currentReturnSale.saleId})`);
+
+    alert("✅ Devolución procesada correctamente.");
+    closeReturnModal();
+    renderSalesHistory();
+    if (typeof products !== 'undefined') products = dbProducts; 
 }
