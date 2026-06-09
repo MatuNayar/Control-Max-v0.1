@@ -74,10 +74,13 @@ function refreshAllReports() {
 // 3. NAVEGACIÓN Y CARGA DE DATOS
 // ==========================================
 
-function showSubTabReports(tabId) {
+async function showSubTabReports(tabId) {
+    try { await DB.ensureMany(DB.SECTION_KEYS.reports); }
+    catch (e) { return notify("Error de conexión con la base de datos."); }
+
     document.querySelectorAll('.report-content').forEach(el => el.style.display = 'none');
     document.getElementById(`sub-reports-${tabId}`).style.display = 'block';
-    
+
     document.querySelectorAll('#reports-section .sub-btn').forEach(btn => {
         btn.classList.remove('active');
         if(btn.getAttribute('onclick').includes(tabId)) btn.classList.add('active');
@@ -88,15 +91,15 @@ function showSubTabReports(tabId) {
 
 function initDashboard() {
     const db = {
-        sales: JSON.parse(localStorage.getItem('salesHistory')) || [],
-        returns: JSON.parse(localStorage.getItem('returns')) || [],
-        products: JSON.parse(localStorage.getItem('products')) || [],
-        expenses: JSON.parse(localStorage.getItem('expenseHistory')) || [],
-        losses: JSON.parse(localStorage.getItem('losses')) || [],
-        balances: JSON.parse(localStorage.getItem('balances')) || { cash: 0, bank: 0 },
-        customers: JSON.parse(localStorage.getItem('customers')) || [],
-        suppliers: JSON.parse(localStorage.getItem('suppliers')) || [],
-        expCats: JSON.parse(localStorage.getItem('expenseCategories')) || []
+        sales: DB.get('salesHistory', []),
+        returns: DB.get('returns', []),
+        products: DB.get('products', []),
+        expenses: DB.get('expenseHistory', []),
+        losses: DB.get('losses', []),
+        balances: DB.get('balances', { cash: 0, bank: 0 }),
+        customers: DB.get('customers', []),
+        suppliers: DB.get('suppliers', []),
+        expCats: DB.get('expenseCategories', [])
     };
 
     // Aplicar Filtro de Tiempo

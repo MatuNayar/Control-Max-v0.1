@@ -5,14 +5,26 @@
  * - Retiros de Mercadería (Carrito, Escáner, Costo/Venta)
  */
 
-let partners = JSON.parse(localStorage.getItem('partners')) || [];
+let partners = [];   // se hidrata desde Firebase al entrar a la sección Socios
 let partnerCart = [];
+
+function hydratePartners() {
+    partners = DB.get('partners', []);
+}
+
+// Refresco en vivo cuando cambian los socios desde otra PC.
+DB.onChange('partners', () => {
+    partners = DB.get('partners', []);
+    const sec = document.getElementById('partners-section');
+    if (sec && sec.style.display !== 'none') renderPartners();
+});
 
 // ==========================================
 // 1. NAVEGACIÓN Y RENDERIZADO PRINCIPAL
 // ==========================================
 
 function showSubTabPartner(tabId) {
+    hydratePartners();
     document.querySelectorAll('.partner-content').forEach(el => el.style.display = 'none');
     const target = document.getElementById(`sub-partners-${tabId}`);
     if (target) target.style.display = 'block';
@@ -89,22 +101,22 @@ function toggleContObs() {
     }
 }
 
-document.getElementById('contribution-form')?.addEventListener('submit', function(e) {
+document.getElementById('contribution-form')?.addEventListener('submit', async function(e) {
     e.preventDefault();
     const id = parseInt(document.getElementById('cont-partner-select').value);
     const amount = parseFloat(document.getElementById('cont-amount').value);
     const method = document.getElementById('cont-method').value;
     const detail = document.getElementById('cont-detail').value.trim();
 
-    if (!id || isNaN(amount) || amount <= 0) return alert("Datos inválidos.");
-    if (method === 'contable' && !detail) return alert("Para aportes contables, debe especificar obligatoriamente en qué consiste (Ej: 'Entrega de computadora').");
+    if (!id || isNaN(amount) || amount <= 0) return notify("Datos inválidos.");
+    if (method === 'contable' && !detail) return notify("Para aportes contables, debe especificar obligatoriamente en qué consiste (Ej: 'Entrega de computadora').");
 
     // 1. Impacto Financiero SOLO si es físico (Ingreso de dinero a la empresa)
     if (method !== 'contable') {
         if (typeof updateBalancesStorage === 'function') {
-            if (method === 'cash') updateBalancesStorage(amount, 0);
-            else updateBalancesStorage(0, amount);
-        } else return alert("Error: Módulo de balance no disponible.");
+            if (method === 'cash') await updateBalancesStorage(amount, 0);
+            else await updateBalancesStorage(0, amount);
+        } else return notify("Error: Módulo de balance no disponible.");
     }
 
     // 2. Actualizar Socio
@@ -123,11 +135,11 @@ document.getElementById('contribution-form')?.addEventListener('submit', functio
             detail: `${detail ? detail : 'Aporte de Capital'} [${typeStr}]`
         });
 
-        localStorage.setItem('partners', JSON.stringify(partners));
+        await DB.set('partners', partners);
         
         if (typeof addLog === 'function') addLog('SOCIOS', 'APORTE', `Aporte ${method==='contable'?'Contable':'Físico'} de $${formatMoney(amount)} por ${partners[idx].name}`);
 
-        alert("Aporte registrado correctamente.");
+        notify("Aporte registrado correctamente.");
         this.reset();
         toggleContObs();
         showSubTabPartner('listado');
@@ -183,11 +195,11 @@ function addProdToPartnerCart() {
 
     if (!val || qty <= 0) return;
 
-    let dbProducts = JSON.parse(localStorage.getItem('products')) || [];
+    let dbProducts = DB.get('products', []);
     const prod = dbProducts.find(p => p.active !== false && (p.code.toLowerCase() === val || p.name.toLowerCase() === val));
 
     if (!prod) { 
-        alert("Producto no encontrado."); 
+        notify("Producto no encontrado."); 
         searchInput.select(); 
         return; 
     }
@@ -197,7 +209,7 @@ function addProdToPartnerCart() {
 
     // Validación de stock
     if (prod.stock < (qtyInCart + qty)) {
-        return alert(`Stock insuficiente de ${prod.name}. Disponible total: ${prod.stock}`);
+        return notify(`Stock insuficiente de ${prod.name}. Disponible total: ${prod.stock}`);
     }
 
     if (exist) {
@@ -254,10 +266,10 @@ function updatePartnerCartQty(index, newQty) {
         partnerCart.splice(index, 1); 
     } else {
         // Validar stock en la modificación manual
-        let dbProducts = JSON.parse(localStorage.getItem('products')) || [];
+        let dbProducts = DB.get('products', []);
         const prod = dbProducts.find(p => p.id === partnerCart[index].id);
         if (prod && prod.stock < qty) { 
-            alert(`Stock máximo disponible: ${prod.stock}`); 
+            notify(`Stock máximo disponible: ${prod.stock}`); 
             partnerCart[index].qty = prod.stock; 
         } else { 
             partnerCart[index].qty = qty; 
@@ -267,12 +279,12 @@ function updatePartnerCartQty(index, newQty) {
 }
 
 // EJECUCIÓN FINAL DEL RETIRO (Dinero o Mercadería)
-document.getElementById('withdrawal-form')?.addEventListener('submit', function(e) {
+document.getElementById('withdrawal-form')?.addEventListener('submit', async function(e) {
     e.preventDefault();
     const id = parseInt(document.getElementById('with-partner-select').value);
     const withType = document.querySelector('input[name="with-type"]:checked').value;
     
-    if (!id) return alert("Seleccione un socio.");
+    if (!id) return notify("Seleccione un socio.");
     
     const idx = partners.findIndex(p => p.id === id);
     if (idx === -1) return;
@@ -289,15 +301,15 @@ document.getElementById('withdrawal-form')?.addEventListener('submit', function(
         const method = document.getElementById('with-method').value;
         const detail = document.getElementById('with-detail').value.trim();
 
-        if (isNaN(amount) || amount <= 0) return alert("Monto inválido.");
+        if (isNaN(amount) || amount <= 0) return notify("Monto inválido.");
 
-        let balances = JSON.parse(localStorage.getItem('balances')) || { cash: 0, bank: 0 };
-        if (method === 'cash' && balances.cash < amount) return alert(`Fondos en Caja insuficientes. Disp: $${formatMoney(balances.cash)}`);
-        if (method === 'bank' && balances.bank < amount) return alert(`Fondos en Banco insuficientes. Disp: $${formatMoney(balances.bank)}`);
+        let balances = DB.get('balances', { cash: 0, bank: 0 });
+        if (method === 'cash' && balances.cash < amount) return notify(`Fondos en Caja insuficientes. Disp: $${formatMoney(balances.cash)}`);
+        if (method === 'bank' && balances.bank < amount) return notify(`Fondos en Banco insuficientes. Disp: $${formatMoney(balances.bank)}`);
 
         if (typeof updateBalancesStorage === 'function') {
-            if (method === 'cash') updateBalancesStorage(-amount, 0);
-            else updateBalancesStorage(0, -amount);
+            if (method === 'cash') await updateBalancesStorage(-amount, 0);
+            else await updateBalancesStorage(0, -amount);
         }
 
         finalAmount = amount;
@@ -312,9 +324,9 @@ document.getElementById('withdrawal-form')?.addEventListener('submit', function(
     // RAMA 2: RETIRO DE MERCADERÍA (Solo afecta Stock)
     // ------------------------------------------
     else if (withType === 'mercaderia') {
-        if (partnerCart.length === 0) return alert("Agregue al menos un producto al carrito de retiro.");
+        if (partnerCart.length === 0) return notify("Agregue al menos un producto al carrito de retiro.");
         
-        let dbProducts = JSON.parse(localStorage.getItem('products')) || [];
+        let dbProducts = DB.get('products', []);
         const calcType = document.querySelector('input[name="with-price-calc"]:checked').value;
         const obs = document.getElementById('with-items-obs').value.trim();
 
@@ -332,7 +344,7 @@ document.getElementById('withdrawal-form')?.addEventListener('submit', function(
             if (prodDB) prodDB.stock -= item.qty;
         });
 
-        localStorage.setItem('products', JSON.stringify(dbProducts));
+        await DB.set('products', dbProducts);
         
         finalAmount = totalCart;
         historyRecord = {
@@ -348,10 +360,10 @@ document.getElementById('withdrawal-form')?.addEventListener('submit', function(
     if (!partners[idx].history) partners[idx].history = [];
     partners[idx].history.push(historyRecord);
 
-    localStorage.setItem('partners', JSON.stringify(partners));
+    await DB.set('partners', partners);
     if (typeof addLog === 'function') addLog('SOCIOS', 'RETIRO', logStr);
 
-    alert("✅ Retiro registrado correctamente.");
+    notify("✅ Retiro registrado correctamente.");
     
     this.reset();
     partnerCart = [];
@@ -396,16 +408,16 @@ function closePartnerProfile() { document.getElementById('partner-profile-modal'
 function openPartnerModal() { document.getElementById('partner-modal').style.display = 'flex'; }
 function closePartnerModal() { document.getElementById('partner-modal').style.display = 'none'; document.getElementById('partner-form')?.reset(); }
 
-document.getElementById('partner-form')?.addEventListener('submit', function(e) {
+document.getElementById('partner-form')?.addEventListener('submit', async function(e) {
     e.preventDefault(); const name = document.getElementById('partner-name').value.trim(); if (!name) return;
     partners.push({ id: Date.now(), name: name, totalContribution: 0, totalWithdrawals: 0, history: [], active: true });
-    localStorage.setItem('partners', JSON.stringify(partners));
-    closePartnerModal(); renderPartners(); alert("Socio creado.");
+    await DB.set('partners', partners);
+    closePartnerModal(); renderPartners(); notify("Socio creado.");
 });
 
-function deletePartner(id) {
-    if(confirm('¿Ocultar socio?')) {
+async function deletePartner(id) {
+    if (await confirmAction('¿Ocultar socio?')) {
         const index = partners.findIndex(p => p.id === id);
-        if(index !== -1) { partners[index].active = false; localStorage.setItem('partners', JSON.stringify(partners)); renderPartners(); }
+        if(index !== -1) { partners[index].active = false; await DB.set('partners', partners); renderPartners(); }
     }
 }

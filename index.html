@@ -11,8 +11,20 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.0/dist/JsBarcode.all.min.js"></script>
+    <!-- Firebase (Realtime Database) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+    <!-- SweetAlert2 (toasts y modales) -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
+
+    <!-- OVERLAY DE CARGA (mientras conecta con Firebase) -->
+    <div id="db-loading-overlay" style="position:fixed; inset:0; z-index:5000; background:#1a1a2e; color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px;">
+        <i class="fas fa-database" style="font-size:3rem; opacity:.85;"></i>
+        <h2 style="margin:0; font-weight:600;">Control-Max</h2>
+        <p id="db-loading-text" style="margin:0; opacity:.8;">Conectando con la base de datos...</p>
+    </div>
 
     <!-- PANTALLA DE LOGIN -->
     <div id="login-screen" class="modal" style="display: flex; z-index: 4000;">
@@ -898,6 +910,7 @@
     <div id="print-area"></div>
 
     <!-- SCRIPTS -->
+    <script src="js/db.js"></script>
     <script src="js/main.js"></script>
     <script src="js/inventory.js"></script>
     <script src="js/sales.js"></script>

@@ -2,16 +2,34 @@
  * CONTROL-MAX - Módulo de Cuentas Corrientes (Clientes y Proveedores)
  */
 
-// Estado global de los datos
-let customers = JSON.parse(localStorage.getItem('customers')) || [];
-let suppliers = JSON.parse(localStorage.getItem('suppliers')) || [];
+// Estado global de los datos (se hidratan desde Firebase al entrar a la sección).
+let customers = [];
+let suppliers = [];
 let selectedEntityId = null;
 let selectedEntityType = null; // 'customer' o 'supplier'
+
+function hydrateAccounts() {
+    customers = DB.get('customers', []);
+    suppliers = DB.get('suppliers', []);
+}
+
+// Refresco en vivo cuando cambian clientes/proveedores desde otra PC.
+DB.onChange('customers', () => {
+    customers = DB.get('customers', []);
+    const sec = document.getElementById('accounts-section');
+    if (sec && sec.style.display !== 'none') renderEntities('clientes');
+});
+DB.onChange('suppliers', () => {
+    suppliers = DB.get('suppliers', []);
+    const sec = document.getElementById('accounts-section');
+    if (sec && sec.style.display !== 'none') renderEntities('proveedores');
+});
 
 /**
  * Navegación de sub-pestañas
  */
 function showSubTabAccount(tabId) {
+    hydrateAccounts();
     document.querySelectorAll('.account-content').forEach(el => el.style.display = 'none');
     const target = document.getElementById(`sub-${tabId}`);
     if (target) target.style.display = 'block';
@@ -161,11 +179,11 @@ function renderIndividualHistory(entity, isClient) {
 /**
  * Procesa el pago de un Cliente
  */
-function registerProfilePayment() {
+async function registerProfilePayment() {
     const amount = parseFloat(document.getElementById('prof-pay-amount').value);
     const method = document.getElementById('prof-pay-method').value;
 
-    if (isNaN(amount) || amount <= 0) return alert("Monto inválido");
+    if (isNaN(amount) || amount <= 0) return notify("Monto inválido");
 
     const client = customers.find(c => c.id === selectedEntityId);
     
@@ -183,25 +201,25 @@ function registerProfilePayment() {
 
     // 3. Balance (ENTRA dinero)
     if (typeof updateBalancesStorage === 'function') {
-        if (method === 'cash') updateBalancesStorage(amount, 0);
-        else updateBalancesStorage(0, amount);
+        if (method === 'cash') await updateBalancesStorage(amount, 0);
+        else await updateBalancesStorage(0, amount);
     }
 
-    saveAccountsToStorage();
+    await saveAccountsToStorage();
     openProfile('customer', selectedEntityId); // Refrescar modal
     renderEntities('clientes'); // Refrescar fondo
     document.getElementById('prof-pay-amount').value = '';
-    alert("Cobro registrado exitosamente.");
+    notify("Cobro registrado exitosamente.");
 }
 
 /**
  * Procesa el pago a un Proveedor
  */
-function registerSupplierPayment() {
+async function registerSupplierPayment() {
     const amount = parseFloat(document.getElementById('prof-supp-pay-amount').value);
     const method = document.getElementById('prof-supp-pay-method').value;
 
-    if (isNaN(amount) || amount <= 0) return alert("Monto inválido");
+    if (isNaN(amount) || amount <= 0) return notify("Monto inválido");
 
     const supp = suppliers.find(s => s.id === selectedEntityId);
 
@@ -219,15 +237,15 @@ function registerSupplierPayment() {
 
     // 3. Balance (SALE dinero)
     if (typeof updateBalancesStorage === 'function') {
-        if (method === 'cash') updateBalancesStorage(-amount, 0);
-        else updateBalancesStorage(0, -amount);
+        if (method === 'cash') await updateBalancesStorage(-amount, 0);
+        else await updateBalancesStorage(0, -amount);
     }
 
-    saveAccountsToStorage();
+    await saveAccountsToStorage();
     openProfile('supplier', selectedEntityId); // Refrescar modal
     renderEntities('proveedores'); // Refrescar fondo
     document.getElementById('prof-supp-pay-amount').value = '';
-    alert("Pago registrado y descontado de caja.");
+    notify("Pago registrado y descontado de caja.");
 }
 
 // ==========================================
@@ -257,7 +275,7 @@ function closeEntityForm() {
     document.getElementById('entity-modal').style.display = 'none';
 }
 
-document.getElementById('entity-form')?.addEventListener('submit', function(e) {
+document.getElementById('entity-form')?.addEventListener('submit', async function(e) {
     e.preventDefault();
     const role = document.getElementById('entity-type').value;
     const id = document.getElementById('entity-id').value;
@@ -280,7 +298,7 @@ document.getElementById('entity-form')?.addEventListener('submit', function(e) {
         list.push(data);
     }
 
-    saveAccountsToStorage();
+    await saveAccountsToStorage();
     closeEntityForm();
     renderEntities(role === 'customer' ? 'clientes' : 'proveedores');
 });
@@ -289,25 +307,25 @@ function editEntity(tab, id) {
     openEntityForm(tab === 'clientes' ? 'customer' : 'supplier', id);
 }
 
-function deleteEntity(tab, id) {
-    if (confirm("¿Desea eliminar este registro?")) {
+async function deleteEntity(tab, id) {
+    if (await confirmAction("¿Desea eliminar este registro?")) {
         const list = (tab === 'clientes' || tab === 'customer') ? customers : suppliers;
         const e = list.find(x => x.id === id);
         if (e) {
             e.active = false;
-            saveAccountsToStorage();
+            await saveAccountsToStorage();
             renderEntities(tab === 'clientes' ? 'clientes' : 'proveedores');
         }
     }
 }
 
-function saveAccountsToStorage() {
-    localStorage.setItem('customers', JSON.stringify(customers));
-    localStorage.setItem('suppliers', JSON.stringify(suppliers));
+async function saveAccountsToStorage() {
+    await Promise.all([
+        DB.set('customers', customers),
+        DB.set('suppliers', suppliers)
+    ]);
     if (typeof updateClientDatalist === 'function') updateClientDatalist();
 }
 
-// Inicialización
-document.addEventListener('DOMContentLoaded', () => {
-    if (document.getElementById('customers-cards-container')) renderEntities('clientes');
-});
+// La carga inicial la maneja showSection('accounts') una vez que los datos
+// se trajeron de Firebase.

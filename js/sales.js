@@ -21,15 +21,16 @@ let selectedProductToScan = null; // Almacena temporalmente el producto/combo a 
 // ==========================================
 
 function generateSaleId() {
-    let config = JSON.parse(localStorage.getItem('config')) || { saleCounter: 0 };
+    let config = DB.get('config', { saleCounter: 0 });
     config.saleCounter += 1;
-    localStorage.setItem('config', JSON.stringify(config));
+    DB.set('config', config);
     return 'V-' + String(config.saleCounter).padStart(6, '0');
 }
 
-// Migrar ventas antiguas para que tengan ID y status
+// Migrar ventas antiguas para que tengan ID y status. Se ejecuta al abrir el
+// historial (ya con los datos traídos de Firebase), no en tiempo de parseo.
 function migrateSalesSystem() {
-    let sales = JSON.parse(localStorage.getItem('salesHistory')) || [];
+    let sales = DB.get('salesHistory', []);
     let changed = false;
     sales.forEach(s => {
         if (!s.saleId) { s.saleId = generateSaleId(); changed = true; }
@@ -39,15 +40,20 @@ function migrateSalesSystem() {
             s.items.forEach(i => { if (typeof i.returnedQty === 'undefined') { i.returnedQty = 0; changed = true; } });
         }
     });
-    if (changed) localStorage.setItem('salesHistory', JSON.stringify(sales));
+    if (changed) DB.set('salesHistory', sales);
 }
-migrateSalesSystem(); // Ejecutar al cargar el script
 
 // ==========================================
 // 2. INICIALIZACIÓN Y NAVEGACIÓN
 // ==========================================
 
-function showSubTabSales(tabId) {
+async function showSubTabSales(tabId) {
+    // Carga perezosa de los datos propios de cada sub-pestaña.
+    try {
+        if (tabId === 'quotes') await DB.ensure('quotes');
+        if (tabId === 'history') await DB.ensureMany(['salesHistory', 'returns']);
+    } catch (e) { return notify("Error de conexión con la base de datos."); }
+
     document.querySelectorAll('.sales-content').forEach(el => el.style.display = 'none');
     document.getElementById(`sub-sales-${tabId}`).style.display = 'block';
 
@@ -58,21 +64,28 @@ function showSubTabSales(tabId) {
 
     if (tabId === 'pos') {
         renderCartTabs();
-        updateSalesDropdown(); 
-        document.getElementById('pos-search').focus(); 
+        updateSalesDropdown();
+        document.getElementById('pos-search').focus();
     }
     if (tabId === 'quotes') {
         renderQuotes();
     }
     if (tabId === 'history') {
+        migrateSalesSystem();
         renderSalesHistory();
     }
 }
 
+// Refresco en vivo del historial de ventas cuando cambia desde otra PC.
+DB.onChange('salesHistory', () => {
+    const sub = document.getElementById('sub-sales-history');
+    if (sub && sub.style.display !== 'none') renderSalesHistory();
+});
+
 function updateSalesDropdown() {
     const datalist = document.getElementById('list-clients');
     if (!datalist) return;
-    const customers = JSON.parse(localStorage.getItem('customers')) || [];
+    const customers = DB.get('customers', []);
     datalist.innerHTML = customers.filter(c => c.active !== false).map(c => `<option value="${c.name}">`).join('');
 }
 
@@ -144,9 +157,9 @@ document.getElementById('pos-search')?.addEventListener('input', function(e) {
         return;
     }
 
-    const dbProducts = JSON.parse(localStorage.getItem('products')) || [];
-    const dbCombos = JSON.parse(localStorage.getItem('combos')) || [];
-    const dbOffers = JSON.parse(localStorage.getItem('offers')) || [];
+    const dbProducts = DB.get('products', []);
+    const dbCombos = DB.get('combos', []);
+    const dbOffers = DB.get('offers', []);
     const today = new Date().setHours(0,0,0,0);
 
     const filteredProds = dbProducts.filter(p => p.active !== false && p.stock > 0 && (p.name.toLowerCase().includes(val) || p.code.toLowerCase().includes(val)));
@@ -198,8 +211,8 @@ document.getElementById('pos-search')?.addEventListener('keydown', function(e) {
 
         if (selectedProductToScan) { addCurrentToCart(); return; }
 
-        const dbProducts = JSON.parse(localStorage.getItem('products')) || [];
-        const dbCombos = JSON.parse(localStorage.getItem('combos')) || [];
+        const dbProducts = DB.get('products', []);
+        const dbCombos = DB.get('combos', []);
         
         const exactCombo = dbCombos.find(c => c.code.toLowerCase() === val);
         if(exactCombo) { 
@@ -210,7 +223,7 @@ document.getElementById('pos-search')?.addEventListener('keydown', function(e) {
 
         const exactMatch = dbProducts.find(p => p.code.toLowerCase() === val && p.active !== false);
         if (exactMatch) {
-            const dbOffers = JSON.parse(localStorage.getItem('offers')) || [];
+            const dbOffers = DB.get('offers', []);
             const today = new Date().setHours(0,0,0,0);
             const activeOffer = dbOffers.find(o => o.productId === exactMatch.id && new Date(o.expiry).getTime() >= today);
             
@@ -232,7 +245,7 @@ document.getElementById('pos-search')?.addEventListener('keydown', function(e) {
             return; 
         }
 
-        alert("Producto o Combo no encontrado.");
+        notify("Producto o Combo no encontrado.");
         this.select();
     }
 });
@@ -251,11 +264,11 @@ function addCurrentToCart() {
     const qtyInput = document.getElementById('pos-qty');
     const qty = parseInt(qtyInput.value);
 
-    if (!selectedProductToScan) return alert("Busque y seleccione un producto primero.");
-    if (isNaN(qty) || qty <= 0) return alert("Cantidad inválida.");
+    if (!selectedProductToScan) return notify("Busque y seleccione un producto primero.");
+    if (isNaN(qty) || qty <= 0) return notify("Cantidad inválida.");
 
     const activeCart = posSessions[activeSessionIndex].items;
-    const dbProducts = JSON.parse(localStorage.getItem('products')) || [];
+    const dbProducts = DB.get('products', []);
     
     // VALIDAR STOCK 
     if (selectedProductToScan.isCombo) {
@@ -269,12 +282,12 @@ function addCurrentToCart() {
                 missingProd = prodDB ? prodDB.name : ci.name;
             }
         });
-        if(!canAdd) return alert(`Stock insuficiente de "${missingProd}" para armar el combo.`);
+        if(!canAdd) return notify(`Stock insuficiente de "${missingProd}" para armar el combo.`);
     } else {
         const inCart = activeCart.find(item => item.id === selectedProductToScan.id && !item.isCombo);
         const qtyInCart = inCart ? inCart.qty : 0;
         if (selectedProductToScan.stock < (qtyInCart + qty)) {
-            return alert(`Stock insuficiente. Disponible: ${selectedProductToScan.stock}`);
+            return notify(`Stock insuficiente. Disponible: ${selectedProductToScan.stock}`);
         }
     }
 
@@ -368,13 +381,14 @@ document.addEventListener('keydown', function(e) {
 // 7. SISTEMA DE PRESUPUESTOS
 // ==========================================
 
-function saveAsQuote() {
+async function saveAsQuote() {
     const cart = posSessions[activeSessionIndex];
-    if (cart.items.length === 0) return alert("El carrito está vacío.");
-    
+    if (cart.items.length === 0) return notify("El carrito está vacío.");
+
     const clientName = document.getElementById('sales-client-search').value.trim() || 'Consumidor Final';
-    let quotes = JSON.parse(localStorage.getItem('quotes')) || [];
-    
+    try { await DB.ensure('quotes'); } catch (e) { return notify("Error de conexión con la base de datos."); }
+    let quotes = DB.get('quotes', []);
+
     quotes.push({
         id: Date.now(),
         date: new Date().toLocaleString(),
@@ -382,9 +396,9 @@ function saveAsQuote() {
         items: [...cart.items],
         total: cart.items.reduce((acc, i) => acc + i.subtotal, 0)
     });
-    
-    localStorage.setItem('quotes', JSON.stringify(quotes));
-    alert("✅ Presupuesto guardado exitosamente.");
+
+    await DB.set('quotes', quotes);
+    notify("✅ Presupuesto guardado exitosamente.");
     
     cart.items = [];
     document.getElementById('sales-client-search').value = '';
@@ -396,7 +410,7 @@ function renderQuotes() {
     if (!tbody) return;
     tbody.innerHTML = '';
     
-    let quotes = JSON.parse(localStorage.getItem('quotes')) || [];
+    let quotes = DB.get('quotes', []);
     if (quotes.length === 0) {
         tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No hay presupuestos guardados.</td></tr>';
         return;
@@ -419,17 +433,17 @@ function renderQuotes() {
     });
 }
 
-function deleteQuote(id) {
-    if(confirm("¿Eliminar presupuesto?")) {
-        let quotes = JSON.parse(localStorage.getItem('quotes')) || [];
+async function deleteQuote(id) {
+    if (await confirmAction("¿Eliminar presupuesto?")) {
+        let quotes = DB.get('quotes', []);
         quotes = quotes.filter(q => q.id !== id);
-        localStorage.setItem('quotes', JSON.stringify(quotes));
+        DB.set('quotes', quotes);
         renderQuotes();
     }
 }
 
 function loadQuoteToCart(id) {
-    let quotes = JSON.parse(localStorage.getItem('quotes')) || [];
+    let quotes = DB.get('quotes', []);
     const q = quotes.find(x => x.id === id);
     if (!q) return;
 
@@ -445,7 +459,7 @@ function loadQuoteToCart(id) {
 }
 
 function printQuote(id) {
-    let quotes = JSON.parse(localStorage.getItem('quotes')) || [];
+    let quotes = DB.get('quotes', []);
     const q = quotes.find(x => x.id === id);
     if (!q) return;
 
@@ -485,9 +499,12 @@ function toggleCombinedPayment() {
     if (combinedBox) combinedBox.style.display = (method === 'combined') ? 'flex' : 'none';
 }
 
-function checkout() {
+async function checkout() {
     const cart = posSessions[activeSessionIndex].items;
-    if (cart.length === 0) return alert("El carrito está vacío.");
+    if (cart.length === 0) return notify("El carrito está vacío.");
+
+    try { await DB.ensureMany(['products', 'customers', 'salesHistory', 'balances']); }
+    catch (e) { return notify("Error de conexión con la base de datos."); }
 
     const clientInput = document.getElementById('sales-client-search');
     let clientName = clientInput.value.trim() || "Consumidor Final";
@@ -507,12 +524,12 @@ function checkout() {
 
         const sumaTotal = Math.round((pCash + pBank + pCtaCte) * 100) / 100;
         if (Math.abs(sumaTotal - total) > 0.05) {
-            return alert(`Error: Total a pagar $${formatMoney(total)} no coincide con la suma $${formatMoney(sumaTotal)}`);
+            return notify(`Error: Total a pagar $${formatMoney(total)} no coincide con la suma $${formatMoney(sumaTotal)}`);
         }
     }
 
     // Gestionar Cliente
-    let customers = JSON.parse(localStorage.getItem('customers')) || [];
+    let customers = DB.get('customers', []);
     let client = customers.find(c => c.name.toLowerCase() === clientName.toLowerCase() && c.active !== false);
 
     if (!client && clientName !== "Consumidor Final") {
@@ -521,15 +538,15 @@ function checkout() {
     }
 
     if (pCtaCte > 0) {
-        if (clientName === "Consumidor Final") return alert("Debe ingresar un cliente específico para vender a Cuenta Corriente.");
+        if (clientName === "Consumidor Final") return notify("Debe ingresar un cliente específico para vender a Cuenta Corriente.");
         client.balance = Math.round((parseFloat(client.balance || 0) + pCtaCte) * 100) / 100;
         client.history.push({ date: new Date().toLocaleString(), type: 'DEUDA', amount: pCtaCte, note: 'Compra en POS' });
     }
 
     // Impacto Financiero y de Stock
-    if (typeof updateBalancesStorage === 'function') updateBalancesStorage(pCash, pBank);
-    
-    let dbProducts = JSON.parse(localStorage.getItem('products')) || [];
+    if (typeof updateBalancesStorage === 'function') await updateBalancesStorage(pCash, pBank);
+
+    let dbProducts = DB.get('products', []);
     cart.forEach(item => {
         if (item.isCombo) {
             item.comboItems.forEach(ci => {
@@ -556,16 +573,18 @@ function checkout() {
         payments: { cash: pCash, bank: pBank, ctacte: pCtaCte }
     };
 
-    let salesHistory = JSON.parse(localStorage.getItem('salesHistory')) || [];
+    let salesHistory = DB.get('salesHistory', []);
     salesHistory.push(saleRecord);
 
-    localStorage.setItem('products', JSON.stringify(dbProducts));
-    localStorage.setItem('customers', JSON.stringify(customers));
-    localStorage.setItem('salesHistory', JSON.stringify(salesHistory));
+    await Promise.all([
+        DB.set('products', dbProducts),
+        DB.set('customers', customers),
+        DB.set('salesHistory', salesHistory)
+    ]);
 
     if (typeof addLog === 'function') addLog('VENTAS', 'VENTA', `Venta ${saleRecord.saleId} por $ ${formatMoney(total)}`, saleRecord, saleRecord.id);
 
-    alert(`✅ Venta procesada correctamente.\nID: ${saleRecord.saleId}\nTotal: $ ${formatMoney(total)}`);
+    notify(`✅ Venta procesada correctamente.\nID: ${saleRecord.saleId}\nTotal: $ ${formatMoney(total)}`);
     
     posSessions[activeSessionIndex].items = [];
     document.getElementById('sales-client-search').value = '';
@@ -590,7 +609,7 @@ function renderSalesHistory() {
     const end = document.getElementById('sh-date-end').value;
     const search = document.getElementById('sh-search').value.toLowerCase();
     
-    let sales = JSON.parse(localStorage.getItem('salesHistory')) || [];
+    let sales = DB.get('salesHistory', []);
 
     const filtered = sales.filter(s => {
         const date = s.date.split('T')[0];
@@ -635,7 +654,7 @@ function renderSalesHistory() {
 let currentReturnSale = null;
 
 function openReturnModal(id) {
-    let sales = JSON.parse(localStorage.getItem('salesHistory')) || [];
+    let sales = DB.get('salesHistory', []);
     currentReturnSale = sales.find(s => s.id === id);
     if (!currentReturnSale) return;
 
@@ -681,9 +700,12 @@ function calcReturnTotal() {
     return total;
 }
 
-function processReturn() {
+async function processReturn() {
     const totalToRefund = Math.round(calcReturnTotal() * 100) / 100;
-    if (totalToRefund <= 0) return alert("Debe seleccionar al menos un producto para devolver.");
+    if (totalToRefund <= 0) return notify("Debe seleccionar al menos un producto para devolver.");
+
+    try { await DB.ensureMany(['products', 'losses', 'customers', 'returns', 'salesHistory', 'balances']); }
+    catch (e) { return notify("Error de conexión con la base de datos."); }
 
     const rCash = parseFloat(document.getElementById('ret-pay-cash').value) || 0;
     const rBank = parseFloat(document.getElementById('ret-pay-bank').value) || 0;
@@ -692,12 +714,12 @@ function processReturn() {
     const sumRefunds = Math.round((rCash + rBank + rCtaCte) * 100) / 100;
 
     if (Math.abs(sumRefunds - totalToRefund) > 0.05) {
-        return alert(`ERROR: La suma de reintegros ($${sumRefunds}) no coincide con el total a devolver ($${totalToRefund}).`);
+        return notify(`ERROR: La suma de reintegros ($${sumRefunds}) no coincide con el total a devolver ($${totalToRefund}).`);
     }
 
     const retType = document.querySelector('input[name="ret-type"]:checked').value;
-    let dbProducts = JSON.parse(localStorage.getItem('products')) || [];
-    let losses = JSON.parse(localStorage.getItem('losses')) || [];
+    let dbProducts = DB.get('products', []);
+    let losses = DB.get('losses', []);
     
     let itemsReturned = [];
     let totalOriginalQty = 0;
@@ -745,38 +767,40 @@ function processReturn() {
     currentReturnSale.status = (totalCurrentReturned >= totalOriginalQty) ? 'devuelta' : 'parcial';
 
     // 3. IMPACTO FINANCIERO
-    if (typeof updateBalancesStorage === 'function') updateBalancesStorage(-rCash, -rBank);
+    if (typeof updateBalancesStorage === 'function') await updateBalancesStorage(-rCash, -rBank);
 
     if (rCtaCte > 0 && currentReturnSale.clientId) {
-        let customers = JSON.parse(localStorage.getItem('customers')) || [];
+        let customers = DB.get('customers', []);
         let client = customers.find(c => c.id === currentReturnSale.clientId);
         if (client) {
             client.balance = Math.round((parseFloat(client.balance) - rCtaCte) * 100) / 100;
             client.history.push({ date: new Date().toLocaleString(), type: 'PAGO', amount: rCtaCte, note: `Nota de Crédito por Devolución ${currentReturnSale.saleId}` });
-            localStorage.setItem('customers', JSON.stringify(customers));
+            await DB.set('customers', customers);
         }
     }
 
     // 4. GUARDAR REGISTROS
-    let returnsDb = JSON.parse(localStorage.getItem('returns')) || [];
+    let returnsDb = DB.get('returns', []);
     returnsDb.push({
         id: Date.now(), saleId: currentReturnSale.saleId, saleDbId: currentReturnSale.id,
         items: itemsReturned, totalRefund: totalToRefund, distribution: { cash: rCash, bank: rBank, ctacte: rCtaCte },
         type: retType, date: new Date().toISOString()
     });
 
-    let salesHistory = JSON.parse(localStorage.getItem('salesHistory')) || [];
+    let salesHistory = DB.get('salesHistory', []);
     const sIndex = salesHistory.findIndex(s => s.id === currentReturnSale.id);
     if (sIndex !== -1) salesHistory[sIndex] = currentReturnSale;
 
-    localStorage.setItem('salesHistory', JSON.stringify(salesHistory));
-    localStorage.setItem('products', JSON.stringify(dbProducts));
-    localStorage.setItem('losses', JSON.stringify(losses));
-    localStorage.setItem('returns', JSON.stringify(returnsDb));
+    await Promise.all([
+        DB.set('salesHistory', salesHistory),
+        DB.set('products', dbProducts),
+        DB.set('losses', losses),
+        DB.set('returns', returnsDb)
+    ]);
 
     if (typeof addLog === 'function') addLog('VENTAS', 'DEVOLUCION', `Devolución $${totalToRefund} (Venta ${currentReturnSale.saleId})`);
 
-    alert("✅ Devolución procesada correctamente.");
+    notify("✅ Devolución procesada correctamente.");
     closeReturnModal();
     renderSalesHistory();
     if (typeof products !== 'undefined') products = dbProducts; 

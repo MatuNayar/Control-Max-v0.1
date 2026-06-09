@@ -7,6 +7,12 @@ let historySortDesc = true;
 let historyPage = 1;
 const logsPerPage = 15; // Cantidad de registros por página
 
+// Refresco en vivo del historial cuando llegan nuevos logs (incluso de otra PC).
+DB.onChange('logs', () => {
+    const sec = document.getElementById('history-section');
+    if (sec && sec.style.display !== 'none') applyHistoryFilters();
+});
+
 // ==========================================
 // 1. INICIALIZACIÓN Y FILTROS
 // ==========================================
@@ -20,7 +26,7 @@ function showSubTabHistory() {
  * Llena el selector de usuarios leyendo la base de datos
  */
 function populateUserFilter() {
-    const users = JSON.parse(localStorage.getItem('users')) || [];
+    const users = DB.get('users', []);
     const select = document.getElementById('hist-filter-user');
     if (!select) return;
     
@@ -52,7 +58,7 @@ function resetHistoryFilters() {
  * Aplica los filtros seleccionados a la base de datos de logs
  */
 function applyHistoryFilters() {
-    let logs = JSON.parse(localStorage.getItem('logs')) || [];
+    let logs = DB.get('logs', []);
     
     const start = document.getElementById('hist-date-start').value;
     const end = document.getElementById('hist-date-end').value;
@@ -211,7 +217,7 @@ function getActionIcon(type) {
 // ==========================================
 
 function viewEventDetail(id) {
-    const logs = JSON.parse(localStorage.getItem('logs')) || [];
+    const logs = DB.get('logs', []);
     const entry = logs.find(l => l.id === id);
     if (!entry || !entry.details) return;
 
@@ -301,8 +307,8 @@ function closeEventDetail() {
 // ==========================================
 
 function exportHistoryCSV() {
-    const logs = JSON.parse(localStorage.getItem('logs')) || [];
-    if (logs.length === 0) return alert("No hay datos en el historial para exportar.");
+    const logs = DB.get('logs', []);
+    if (logs.length === 0) return notify("No hay datos en el historial para exportar.");
 
     // Cabeceras del CSV
     let csv = "Fecha,Hora,Usuario,Modulo,Accion,Descripcion\n";

@@ -14,13 +14,19 @@ const ROLE_PERMISSIONS = {
 /**
  * PROCESO DE LOGIN
  */
-document.getElementById('login-form')?.addEventListener('submit', function(e) {
+document.getElementById('login-form')?.addEventListener('submit', async function(e) {
     e.preventDefault();
 
     const uInput = document.getElementById('login-username').value.trim();
     const pInput = document.getElementById('login-password').value;
 
-    const users = JSON.parse(localStorage.getItem('users')) || [];
+    try {
+        await DB.ensure('users');
+    } catch (err) {
+        return notify("No se pudo conectar con la base de datos. Revisá tu conexión / la configuración de Firebase.");
+    }
+
+    const users = DB.get('users', []);
 
     // Buscar coincidencia exacta
     const userFound = users.find(u => 
@@ -38,7 +44,7 @@ document.getElementById('login-form')?.addEventListener('submit', function(e) {
         
         if (typeof addLog === 'function') addLog('AUTH', 'LOGIN', `Usuario ${userFound.username} ingresó`);
     } else {
-        alert("Credenciales incorrectas o usuario desactivado.");
+        notify("Credenciales incorrectas o usuario desactivado.");
     }
 });
 
@@ -86,16 +92,12 @@ function applyPermissions() {
     }
 }
 
-function logout() {
-    if (confirm("¿Cerrar sesión?")) {
+async function logout() {
+    if (await confirmAction("¿Cerrar sesión?", { confirmText: 'Cerrar sesión', icon: 'question' })) {
         sessionStorage.removeItem('currentUser');
         window.location.reload();
     }
 }
 
-// Verificar sesión al cargar la página
-document.addEventListener('DOMContentLoaded', () => {
-    if (currentUser) {
-        unlockSystem(currentUser);
-    }
-});
+// La restauración de sesión la maneja bootSession() en main.js, una vez que
+// Firebase está inicializado y el DOM listo.

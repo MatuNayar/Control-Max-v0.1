@@ -5,26 +5,30 @@
  * - Gestión Dinámica de Categorías con Colores
  */
 
-let balances = JSON.parse(localStorage.getItem('balances')) || { cash: 0, bank: 0 };
-let expenseHistory = JSON.parse(localStorage.getItem('expenseHistory')) || [];
+// Se hidratan desde Firebase (DB) al entrar a la sección Balance.
+let balances = { cash: 0, bank: 0 };
+let expenseHistory = [];
+let expenseCategories = [];
 
-// Categorías de Gastos por defecto (Se auto-instalan la primera vez para mantener compatibilidad)
-let expenseCategories = JSON.parse(localStorage.getItem('expenseCategories')) || [
-    { id: 1, name: 'Servicios', description: 'Luz, Agua, Gas, Internet', color: '#3498db' },
-    { id: 2, name: 'Impuestos', description: 'Cargas impositivas, AFIP', color: '#e74c3c' },
-    { id: 3, name: 'Varios', description: 'Gastos menores y generales', color: '#95a5a6' }
-];
-
-// Forzar guardado la primera vez
-if (!localStorage.getItem('expenseCategories')) {
-    localStorage.setItem('expenseCategories', JSON.stringify(expenseCategories));
+// Trae las colecciones desde la caché de DB a las variables del módulo.
+function hydrateBalance() {
+    balances = DB.get('balances', { cash: 0, bank: 0 });
+    expenseHistory = DB.get('expenseHistory', []);
+    expenseCategories = DB.get('expenseCategories', []);
 }
+
+// Refresco en vivo cuando cambian los saldos desde otra PC.
+DB.onChange('balances', () => {
+    balances = DB.get('balances', { cash: 0, bank: 0 });
+    renderBalances();
+});
 
 // ==========================================
 // 1. NAVEGACIÓN Y RENDERIZADO BÁSICO
 // ==========================================
 
 function showSubTabBalance(tabId) {
+    hydrateBalance();
     document.querySelectorAll('.balance-content').forEach(el => el.style.display = 'none');
     const target = document.getElementById(`sub-${tabId}`);
     if (target) target.style.display = 'block';
@@ -45,6 +49,7 @@ function showSubTabBalance(tabId) {
 }
 
 function renderBalances() {
+    balances = DB.get('balances', { cash: 0, bank: 0 });
     const cashEl = document.getElementById('cash-amount');
     const bankEl = document.getElementById('bank-amount');
     const totalEl = document.getElementById('total-amount');
@@ -57,31 +62,35 @@ function renderBalances() {
     }
 }
 
-function updateBalancesStorage(cashDiff, bankDiff) {
+// Actualiza los saldos de forma robusta: trae el valor más reciente de la DB
+// (no depende de que la sección Balance se haya abierto antes) y persiste.
+async function updateBalancesStorage(cashDiff, bankDiff) {
+    await DB.ensure('balances');
+    balances = DB.get('balances', { cash: 0, bank: 0 });
     balances.cash += parseFloat(cashDiff) || 0;
     balances.bank += parseFloat(bankDiff) || 0;
-    localStorage.setItem('balances', JSON.stringify(balances));
+    await DB.set('balances', balances);
     renderBalances();
 }
 
-function makeTransfer() {
+async function makeTransfer() {
     const amountInput = document.getElementById('transfer-amount');
     const amount = parseFloat(amountInput.value);
     const origin = document.getElementById('transfer-origin').value;
 
-    if (isNaN(amount) || amount <= 0) return alert("Monto inválido.");
+    if (isNaN(amount) || amount <= 0) return notify("Monto inválido.");
 
     if (origin === 'cash') {
-        if (balances.cash < amount) return alert("Efectivo insuficiente.");
-        updateBalancesStorage(-amount, amount);
+        if (balances.cash < amount) return notify("Efectivo insuficiente.");
+        await updateBalancesStorage(-amount, amount);
     } else {
-        if (balances.bank < amount) return alert("Saldo bancario insuficiente.");
-        updateBalancesStorage(amount, -amount);
+        if (balances.bank < amount) return notify("Saldo bancario insuficiente.");
+        await updateBalancesStorage(amount, -amount);
     }
 
     if (typeof addLog === 'function') addLog('BALANCE', 'TRANSFERENCIA', `Transferencia de $${amount} desde ${origin === 'cash' ? 'Caja' : 'Banco'}`);
 
-    alert("Movimiento realizado.");
+    notify("Movimiento realizado.");
     amountInput.value = '';
     showSubTabBalance('saldo');
 }
@@ -90,7 +99,7 @@ function makeTransfer() {
 // 2. GESTIÓN DE GASTOS
 // ==========================================
 
-document.getElementById('expense-form')?.addEventListener('submit', function(e) {
+document.getElementById('expense-form')?.addEventListener('submit', async function(e) {
     e.preventDefault();
 
     const desc = document.getElementById('exp-desc').value;
@@ -98,13 +107,13 @@ document.getElementById('expense-form')?.addEventListener('submit', function(e) 
     const method = document.getElementById('exp-method').value;
     const category = document.getElementById('exp-category').value;
 
-    if (isNaN(amount) || amount <= 0) return alert("Monto inválido.");
+    if (isNaN(amount) || amount <= 0) return notify("Monto inválido.");
 
-    if (method === 'cash' && balances.cash < amount) return alert("Efectivo insuficiente en caja.");
-    if (method === 'bank' && balances.bank < amount) return alert("Saldo bancario insuficiente.");
+    if (method === 'cash' && balances.cash < amount) return notify("Efectivo insuficiente en caja.");
+    if (method === 'bank' && balances.bank < amount) return notify("Saldo bancario insuficiente.");
 
-    if (method === 'cash') updateBalancesStorage(-amount, 0);
-    else updateBalancesStorage(0, -amount);
+    if (method === 'cash') await updateBalancesStorage(-amount, 0);
+    else await updateBalancesStorage(0, -amount);
 
     const expenseRecord = {
         id: Date.now(),
@@ -116,12 +125,12 @@ document.getElementById('expense-form')?.addEventListener('submit', function(e) 
     };
 
     expenseHistory.push(expenseRecord);
-    localStorage.setItem('expenseHistory', JSON.stringify(expenseHistory));
+    DB.set('expenseHistory', expenseHistory);
     
     if (typeof addLog === 'function') addLog('BALANCE', 'GASTO', `Gasto registrado: $${formatMoney(amount)} (${category})`);
 
     this.reset();
-    alert("✅ Gasto registrado y descontado.");
+    notify("✅ Gasto registrado y descontado.");
     renderExpenseHistory();
 });
 
@@ -190,11 +199,11 @@ document.getElementById('exp-cat-form')?.addEventListener('submit', function(e) 
     const desc = document.getElementById('exp-cat-desc').value.trim();
     const color = document.getElementById('exp-cat-color').value;
 
-    if (!name) return alert("El nombre de la categoría es obligatorio.");
+    if (!name) return notify("El nombre de la categoría es obligatorio.");
 
     // Evitar nombres duplicados
     const isDuplicate = expenseCategories.some(c => c.name.toLowerCase() === name.toLowerCase() && c.id != id);
-    if (isDuplicate) return alert("Ya existe una categoría con este nombre.");
+    if (isDuplicate) return notify("Ya existe una categoría con este nombre.");
 
     if (id) {
         // MODO EDICIÓN
@@ -211,7 +220,7 @@ document.getElementById('exp-cat-form')?.addEventListener('submit', function(e) 
                         updatedHistory = true;
                     }
                 });
-                if(updatedHistory) localStorage.setItem('expenseHistory', JSON.stringify(expenseHistory));
+                if(updatedHistory) DB.set('expenseHistory', expenseHistory);
             }
             
             expenseCategories[idx] = { id: parseInt(id), name, description: desc, color };
@@ -223,8 +232,8 @@ document.getElementById('exp-cat-form')?.addEventListener('submit', function(e) 
         if (typeof addLog === 'function') addLog('ADMIN', 'CREACION', `Creada categoría de gasto: ${name}`);
     }
 
-    localStorage.setItem('expenseCategories', JSON.stringify(expenseCategories));
-    alert("Categoría guardada correctamente.");
+    DB.set('expenseCategories', expenseCategories);
+    notify("Categoría guardada correctamente.");
     
     resetExpCatForm();
     renderExpCategories();
@@ -244,15 +253,15 @@ function editExpCategory(id) {
     document.getElementById('exp-cat-form-title').innerText = "Editar Categoría";
 }
 
-function deleteExpCategory(id, name) {
+async function deleteExpCategory(id, name) {
     const inUse = expenseHistory.some(exp => exp.category === name);
     if (inUse) {
-        return alert(`❌ ACCIÓN DENEGADA.\nExisten gastos registrados bajo la categoría "${name}". No se puede eliminar para mantener la integridad de los reportes.`);
+        return notify(`❌ ACCIÓN DENEGADA.\nExisten gastos registrados bajo la categoría "${name}". No se puede eliminar para mantener la integridad de los reportes.`);
     }
 
-    if (confirm(`¿Está seguro de eliminar la categoría "${name}"?`)) {
+    if (await confirmAction(`¿Está seguro de eliminar la categoría "${name}"?`)) {
         expenseCategories = expenseCategories.filter(c => c.id !== id);
-        localStorage.setItem('expenseCategories', JSON.stringify(expenseCategories));
+        DB.set('expenseCategories', expenseCategories);
         if (typeof addLog === 'function') addLog('ADMIN', 'BAJA', `Eliminada categoría de gasto: ${name}`);
         renderExpCategories();
         updateExpCategorySelect();
@@ -266,5 +275,5 @@ function resetExpCatForm() {
     document.getElementById('exp-cat-form-title').innerText = "Nueva Categoría";
 }
 
-// Carga Inicial
-document.addEventListener('DOMContentLoaded', renderBalances);
+// La carga inicial la maneja showSection('balance') -> renderBalances(), una vez
+// que los datos se trajeron de Firebase.

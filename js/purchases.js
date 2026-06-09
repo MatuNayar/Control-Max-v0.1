@@ -10,6 +10,8 @@ let bulkRowsCount = 0;
 // ==========================================
 
 function showSubTabPurchase(tabId) {
+    // El global `products` (definido en inventory.js) se refresca desde la caché.
+    products = DB.get('products', []);
     document.querySelectorAll('.purchase-content').forEach(el => el.style.display = 'none');
     document.getElementById(`sub-${tabId}`).style.display = 'block';
 
@@ -28,8 +30,8 @@ function preparePurchaseSelectors(type) {
     const prefix = type === 'individual' ? 'pay-ind' : 'pay-bulk';
     const provSelect = document.getElementById(`${prefix}-prov-select`);
     const partSelect = document.getElementById(`${prefix}-part-select`);
-    const suppliers = JSON.parse(localStorage.getItem('suppliers')) || [];
-    const partners = JSON.parse(localStorage.getItem('partners')) || [];
+    const suppliers = DB.get('suppliers', []);
+    const partners = DB.get('partners', []);
 
     if (provSelect) {
         provSelect.innerHTML = '<option value="">-- Seleccionar Proveedor --</option>';
@@ -72,26 +74,31 @@ function calcIndTotal() {
     document.getElementById('p-ind-total-display').value = `$ ${formatMoney(qty * cost)}`;
 }
 
-function saveIndividualPurchase() {
+async function saveIndividualPurchase() {
+    // Asegura e hidrata los datos de inventario (products, printQueue, etc.) y
+    // contables (suppliers, partners, purchases, balances) antes de operar.
+    try { await DB.ensureMany(DB.SECTION_KEYS.inventory); } catch (e) { return notify("Error de conexión con la base de datos."); }
+    if (typeof hydrateInventory === 'function') hydrateInventory();
+
     const val = document.getElementById('p-ind-search').value.toLowerCase();
     const qty = parseFloat(document.getElementById('p-ind-qty').value) || 0;
     const cost = parseFloat(document.getElementById('p-ind-cost').value) || 0;
     const price = parseFloat(document.getElementById('p-ind-price').value) || 0;
 
     const prod = products.find(p => p.active !== false && (p.code.toLowerCase() === val || p.name.toLowerCase() === val));
-    if (!prod) return alert("Error: Debe seleccionar un producto existente del inventario para compra individual.");
-    if (qty <= 0) return alert("Error: La cantidad debe ser mayor a 0.");
+    if (!prod) return notify("Error: Debe seleccionar un producto existente del inventario para compra individual.");
+    if (qty <= 0) return notify("Error: La cantidad debe ser mayor a 0.");
 
     const totalCompra = Math.round((qty * cost) * 100) / 100;
-    const paymentData = getPaymentData('ind'); 
+    const paymentData = getPaymentData('ind');
 
     if (!validatePaymentSum(totalCompra, paymentData)) return;
-    if (!executeFinancialTransaction(paymentData, `Compra Individual: ${prod.name} (x${qty})`, totalCompra)) return;
+    if (!await executeFinancialTransaction(paymentData, `Compra Individual: ${prod.name} (x${qty})`, totalCompra)) return;
 
     prod.stock += qty;
     prod.cost = cost;
     prod.price = price;
-    localStorage.setItem('products', JSON.stringify(products));
+    await DB.set('products', products);
 
     logGlobalPurchase([{ name: prod.name, qty: qty, cost: cost, total: totalCompra }], paymentData, totalCompra);
 
@@ -100,7 +107,7 @@ function saveIndividualPurchase() {
         addToPrintQueue(prod, qty);
     }
 
-    alert("Compra Individual Registrada Exitosamente. Etiquetas enviadas a la cola de impresión.");
+    notify("Compra Individual Registrada Exitosamente. Etiquetas enviadas a la cola de impresión.");
     
     document.getElementById('p-ind-search').value = '';
     document.getElementById('p-ind-qty').value = 1;
@@ -174,13 +181,18 @@ function calcBulkTotal() {
     document.getElementById('bulk-total-display').innerText = formatMoney(total);
 }
 
-function saveBulkPurchase() {
+async function saveBulkPurchase() {
+    // Asegura e hidrata inventario + datos contables antes de operar (puede crear
+    // productos nuevos, categorías, códigos y mover saldos/proveedores/socios).
+    try { await DB.ensureMany(DB.SECTION_KEYS.inventory); } catch (e) { return notify("Error de conexión con la base de datos."); }
+    if (typeof hydrateInventory === 'function') hydrateInventory();
+
     const itemsToProcess = [];
     let totalCompra = 0;
     let error = null;
 
     const rows = document.querySelectorAll('#bulk-body tr');
-    if (rows.length === 0) return alert("La tabla está vacía.");
+    if (rows.length === 0) return notify("La tabla está vacía.");
 
     for (const tr of rows) {
         let code = tr.querySelector('.b-code').value.trim();
@@ -230,12 +242,12 @@ function saveBulkPurchase() {
         totalCompra += (qty * cost);
     }
 
-    if (error) return alert(error);
+    if (error) return notify(error);
     totalCompra = Math.round(totalCompra * 100) / 100;
 
     const paymentData = getPaymentData('bulk');
     if (!validatePaymentSum(totalCompra, paymentData)) return;
-    if (!executeFinancialTransaction(paymentData, `Compra Masiva (${itemsToProcess.length} items)`, totalCompra)) return;
+    if (!await executeFinancialTransaction(paymentData, `Compra Masiva (${itemsToProcess.length} items)`, totalCompra)) return;
 
     let newProductsCount = 0;
     
@@ -275,11 +287,11 @@ function saveBulkPurchase() {
         }
     });
 
-    localStorage.setItem('products', JSON.stringify(products));
+    await DB.set('products', products);
 
     logGlobalPurchase(itemsToProcess, paymentData, totalCompra);
 
-    alert(`Compra Masiva Registrada Exitosamente.\n- Items Procesados: ${itemsToProcess.length}\n- Nuevos Creados Auto: ${newProductsCount}\n\nLas etiquetas se han enviado a la cola de impresión.`);
+    notify(`Compra Masiva Registrada Exitosamente.\n- Items Procesados: ${itemsToProcess.length}\n- Nuevos Creados Auto: ${newProductsCount}\n\nLas etiquetas se han enviado a la cola de impresión.`);
     
     document.getElementById('bulk-body').innerHTML = '';
     bulkRowsCount = 0;
@@ -317,39 +329,39 @@ function resetPaymentInputs(prefix) {
 function validatePaymentSum(totalRequired, p) {
     const sum = Math.round((p.cash + p.bank + p.ctacte + p.partner) * 100) / 100;
     if (Math.abs(sum - totalRequired) > 0.05) {
-        alert(`Error en distribución de pago:\n\nTotal a Pagar: $ ${formatMoney(totalRequired)}\nSuma Ingresada: $ ${formatMoney(sum)}\nDiferencia: $ ${formatMoney(totalRequired - sum)}`);
+        notify(`Error en distribución de pago:\n\nTotal a Pagar: $ ${formatMoney(totalRequired)}\nSuma Ingresada: $ ${formatMoney(sum)}\nDiferencia: $ ${formatMoney(totalRequired - sum)}`);
         return false;
     }
-    if (p.ctacte > 0 && !p.provId) { alert("Seleccione un Proveedor para asignar la Cuenta Corriente."); return false; }
-    if (p.partner > 0 && !p.partId) { alert("Seleccione un Socio para asignar el Aporte de Capital."); return false; }
+    if (p.ctacte > 0 && !p.provId) { notify("Seleccione un Proveedor para asignar la Cuenta Corriente."); return false; }
+    if (p.partner > 0 && !p.partId) { notify("Seleccione un Socio para asignar el Aporte de Capital."); return false; }
     return true;
 }
 
-function executeFinancialTransaction(p, description, totalAmount) {
+async function executeFinancialTransaction(p, description, totalAmount) {
     const dateStr = new Date().toLocaleString();
 
     if (p.cash > 0 || p.bank > 0) {
-        if (typeof updateBalancesStorage === 'function') updateBalancesStorage(-p.cash, -p.bank);
-        else { alert("Error crítico: Módulo balance no disponible."); return false; }
+        if (typeof updateBalancesStorage === 'function') await updateBalancesStorage(-p.cash, -p.bank);
+        else { notify("Error crítico: Módulo balance no disponible."); return false; }
     }
 
     if (p.ctacte > 0 && p.provId) {
-        let suppliers = JSON.parse(localStorage.getItem('suppliers')) || [];
+        let suppliers = DB.get('suppliers', []);
         const idx = suppliers.findIndex(s => s.id == p.provId);
         if (idx !== -1) {
             suppliers[idx].balance = (parseFloat(suppliers[idx].balance) || 0) + p.ctacte; 
             if (!suppliers[idx].history) suppliers[idx].history = [];
             suppliers[idx].history.push({ date: dateStr, type: 'COMPRA', amount: p.ctacte, note: description });
-            localStorage.setItem('suppliers', JSON.stringify(suppliers));
+            await DB.set('suppliers', suppliers);
         }
     }
 
     if (p.partner > 0 && p.partId) {
-        let partners = JSON.parse(localStorage.getItem('partners')) || [];
+        let partners = DB.get('partners', []);
         const idx = partners.findIndex(pt => pt.id == p.partId);
         if (idx !== -1) {
             partners[idx].totalContribution = (parseFloat(partners[idx].totalContribution) || 0) + p.partner;
-            localStorage.setItem('partners', JSON.stringify(partners));
+            await DB.set('partners', partners);
         }
     }
 
@@ -357,12 +369,12 @@ function executeFinancialTransaction(p, description, totalAmount) {
 }
 
 function logGlobalPurchase(items, p, total) {
-    let purchases = JSON.parse(localStorage.getItem('purchases')) || [];
+    let purchases = DB.get('purchases', []);
     const record = {
         id: Date.now(), timestamp: new Date().toISOString(), itemsCount: items.length,
         itemsDetail: items.length > 3 ? `${items[0].name}, ${items[1].name} y ${items.length - 2} más...` : items.map(i => `${i.name} (x${i.qty})`).join(', '),
         totalCost: total, funding: { cash: p.cash, bank: p.bank, supplierCredit: p.ctacte, partnerInvestment: p.partner }, providerId: p.provId || null, partnerId: p.partId || null
     };
-    purchases.push(record); localStorage.setItem('purchases', JSON.stringify(purchases));
+    purchases.push(record); DB.set('purchases', purchases);
     if (typeof addLog === 'function') addLog('COMPRAS', 'ALTA', `Compra registrada por $${formatMoney(total)} (${record.itemsDetail})`);
 }

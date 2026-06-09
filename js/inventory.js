@@ -8,17 +8,32 @@
  * - Impresión de Etiquetas A4 Profesionales (5 Columnas)
  */
 
-let products = JSON.parse(localStorage.getItem('products')) || [];
-let masterRubros = JSON.parse(localStorage.getItem('masterRubros')) || [];
-let masterMarcas = JSON.parse(localStorage.getItem('masterMarcas')) || [];
-let offers = JSON.parse(localStorage.getItem('offers')) || [];
-let combos = JSON.parse(localStorage.getItem('combos')) || [];
-let losses = JSON.parse(localStorage.getItem('losses')) || [];
-let labelPrintList = JSON.parse(localStorage.getItem('printQueue')) || [];
+// Estos arrays se hidratan desde Firebase (DB) al entrar a la sección Inventario.
+let products = [];
+let masterRubros = [];
+let masterMarcas = [];
+let offers = [];
+let combos = [];
+let losses = [];
+let labelPrintList = [];
 
 // ==========================================
 // 0. INICIALIZACIÓN
 // ==========================================
+
+// Trae las colecciones desde la caché de DB a las variables globales del módulo.
+// La sección ya hizo DB.ensure(...) antes de llamar acá (ver showSection/showSubTab).
+function hydrateInventory() {
+    products = DB.get('products', []);
+    masterRubros = DB.get('masterRubros', []);
+    masterMarcas = DB.get('masterMarcas', []);
+    offers = DB.get('offers', []);
+    combos = DB.get('combos', []);
+    losses = DB.get('losses', []);
+    labelPrintList = DB.get('printQueue', []);
+    initInventory();
+}
+
 function initInventory() {
     let changed = false;
     products.forEach(p => {
@@ -26,14 +41,21 @@ function initInventory() {
         if (p.marca && !masterMarcas.includes(p.marca.toUpperCase())) { masterMarcas.push(p.marca.toUpperCase()); changed = true; }
     });
     masterRubros.sort(); masterMarcas.sort();
-    if (changed) { localStorage.setItem('masterRubros', JSON.stringify(masterRubros)); localStorage.setItem('masterMarcas', JSON.stringify(masterMarcas)); }
+    if (changed) { DB.set('masterRubros', masterRubros); DB.set('masterMarcas', masterMarcas); }
 }
-initInventory();
+
+// Refresco en vivo cuando cambian los productos desde otra PC.
+DB.onChange('products', () => {
+    products = DB.get('products', []);
+    const sec = document.getElementById('inventory-section');
+    if (sec && sec.style.display !== 'none') { updateGlobalDatalist(); renderInventory(); }
+});
 
 // ==========================================
 // 1. NAVEGACIÓN Y RENDERIZADO
 // ==========================================
 function showSubTab(tabId) {
+    hydrateInventory();
     document.querySelectorAll('.sub-content').forEach(el => el.style.display = 'none');
     const target = document.getElementById(`sub-${tabId}`);
     if (target) target.style.display = 'block';
@@ -87,9 +109,9 @@ function filterProducts() {
 // 2. EXPORTAR A EXCEL
 // ==========================================
 function exportInventoryExcel() {
-    if (typeof XLSX === 'undefined') return alert("Error: Librería Excel no cargada.");
+    if (typeof XLSX === 'undefined') return notify("Error: Librería Excel no cargada.");
     const activeProducts = products.filter(p => p.active !== false);
-    if(activeProducts.length === 0) return alert("No hay productos para exportar.");
+    if(activeProducts.length === 0) return notify("No hay productos para exportar.");
     const dataForExcel = activeProducts.map(p => ({ "Código": p.code, "Nombre del Producto": p.name, "Rubro": p.rubro || '', "Marca": p.marca || '', "Costo ($)": p.cost || 0, "Precio Venta ($)": p.price || 0, "Stock Físico": p.stock || 0 }));
     const worksheet = XLSX.utils.json_to_sheet(dataForExcel); const workbook = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(workbook, worksheet, "Inventario");
     worksheet['!cols'] = [ {wch: 15}, {wch: 40}, {wch: 20}, {wch: 20}, {wch: 15}, {wch: 15}, {wch: 15} ];
@@ -105,8 +127,8 @@ function autoFillIndUpdate() { document.getElementById('ind-preview-box').style.
 
 function previewIndPriceUpdate() {
     const searchVal = document.getElementById('ind-upd-search').value.trim().toLowerCase(), type = document.getElementById('ind-upd-type').value, val = parseFloat(document.getElementById('ind-upd-val').value);
-    if (!searchVal) return alert("Busque un producto."); if (isNaN(val)) return alert("Ingrese valor numérico.");
-    const prod = products.find(p => p.active !== false && (p.code.toLowerCase() === searchVal || p.name.toLowerCase() === searchVal)); if (!prod) return alert("Producto no encontrado.");
+    if (!searchVal) return notify("Busque un producto."); if (isNaN(val)) return notify("Ingrese valor numérico.");
+    const prod = products.find(p => p.active !== false && (p.code.toLowerCase() === searchVal || p.name.toLowerCase() === searchVal)); if (!prod) return notify("Producto no encontrado.");
     let newPrice = type === 'exact' ? val : (type === 'amount' ? prod.price + val : prod.price * (1 + (val / 100))); newPrice = Math.max(Math.round(newPrice * 100) / 100, 0);
     indUpdateItemTemp = { id: prod.id, name: prod.name, oldPrice: prod.price, newPrice: newPrice };
     document.getElementById('ind-preview-text').innerHTML = `<strong>${prod.name}</strong><br>Precio Actual: $${formatMoney(prod.price)} <i class="fas fa-arrow-right" style="color:var(--accent);"></i> <strong style="color:var(--success); font-size:1.3rem;">Nuevo: $${formatMoney(newPrice)}</strong>`;
@@ -116,25 +138,25 @@ function previewIndPriceUpdate() {
 function applyIndPriceUpdate() {
     if (!indUpdateItemTemp) return;
     const prodIndex = products.findIndex(p => p.id === indUpdateItemTemp.id);
-    if (prodIndex !== -1) { products[prodIndex].price = indUpdateItemTemp.newPrice; localStorage.setItem('products', JSON.stringify(products)); alert("Precio actualizado exitosamente."); document.getElementById('ind-upd-search').value = ''; document.getElementById('ind-upd-val').value = ''; document.getElementById('ind-preview-box').style.display = 'none'; indUpdateItemTemp = null; }
+    if (prodIndex !== -1) { products[prodIndex].price = indUpdateItemTemp.newPrice; DB.set('products', products); notify("Precio actualizado exitosamente."); document.getElementById('ind-upd-search').value = ''; document.getElementById('ind-upd-val').value = ''; document.getElementById('ind-preview-box').style.display = 'none'; indUpdateItemTemp = null; }
 }
 
 function previewBulkPriceUpdate() {
     const fRubro = document.getElementById('bulk-upd-rubro').value, fMarca = document.getElementById('bulk-upd-marca').value, percent = parseFloat(document.getElementById('bulk-upd-percent').value);
-    if (isNaN(percent) || percent === 0) return alert("Ingrese un porcentaje válido.");
+    if (isNaN(percent) || percent === 0) return notify("Ingrese un porcentaje válido.");
     bulkUpdateList = products.filter(p => p.active !== false && (fRubro === '' || p.rubro === fRubro) && (fMarca === '' || p.marca === fMarca));
-    if (bulkUpdateList.length === 0) return alert("No se encontraron productos.");
+    if (bulkUpdateList.length === 0) return notify("No se encontraron productos.");
     const tbody = document.getElementById('bulk-preview-body'); tbody.innerHTML = ''; document.getElementById('bulk-count').innerText = bulkUpdateList.length;
     bulkUpdateList.forEach(p => { const oldPrice = p.price, newPrice = Math.round((oldPrice * (1 + (percent / 100))) * 100) / 100, diff = newPrice - oldPrice; p._newTempPrice = newPrice; tbody.innerHTML += `<tr><td>${p.code} - ${p.name}</td><td>$ ${formatMoney(oldPrice)}</td><td style="color:var(--primary); font-weight:bold;">$ ${formatMoney(newPrice)}</td><td style="color:${diff > 0 ? 'var(--success)' : 'var(--danger)'}">${diff > 0 ? '+' : ''}$ ${formatMoney(diff)}</td></tr>`; });
     document.getElementById('bulk-preview-container').style.display = 'block';
 }
 
-function applyBulkPriceUpdate() {
+async function applyBulkPriceUpdate() {
     if (bulkUpdateList.length === 0) return;
-    if (confirm(`¿Aplicar cambio a ${bulkUpdateList.length} productos?`)) {
+    if (await confirmAction(`¿Aplicar cambio a ${bulkUpdateList.length} productos?`, { confirmText: 'Aplicar', icon: 'question' })) {
         let updateCount = 0;
         bulkUpdateList.forEach(tempItem => { const realProd = products.find(p => p.id === tempItem.id); if (realProd && realProd._newTempPrice) { realProd.price = realProd._newTempPrice; delete realProd._newTempPrice; updateCount++; } });
-        localStorage.setItem('products', JSON.stringify(products)); alert(`¡Éxito! Se actualizaron ${updateCount} productos.`); document.getElementById('bulk-upd-percent').value = ''; document.getElementById('bulk-preview-container').style.display = 'none'; bulkUpdateList = [];
+        DB.set('products', products); notify(`¡Éxito! Se actualizaron ${updateCount} productos.`); document.getElementById('bulk-upd-percent').value = ''; document.getElementById('bulk-preview-container').style.display = 'none'; bulkUpdateList = [];
     }
 }
 
@@ -149,17 +171,17 @@ function toggleDiscountView(view) {
 let selectedOfferProd = null;
 function fillOfferProd() { const val = document.getElementById('offer-prod-search').value.trim().toLowerCase(); selectedOfferProd = products.find(p => p.active !== false && (p.code.toLowerCase() === val || p.name.toLowerCase() === val)); if (selectedOfferProd) { document.getElementById('offer-normal-price').value = `$ ${formatMoney(selectedOfferProd.price)}`; calcOfferPreview(); } }
 function calcOfferPreview() { if (!selectedOfferProd) return; const type = document.getElementById('offer-type').value, val = parseFloat(document.getElementById('offer-val').value) || 0; let final = type === 'percent' ? selectedOfferProd.price * (1 - (val/100)) : (type === 'amount' ? selectedOfferProd.price - val : val); document.getElementById('offer-preview-price').innerText = formatMoney(Math.max(final, 0)); }
-function saveOffer() { if (!selectedOfferProd) return alert("Seleccione producto."); const type = document.getElementById('offer-type').value, val = parseFloat(document.getElementById('offer-val').value) || 0, expiry = document.getElementById('offer-expiry').value; if (!expiry) return alert("Seleccione vencimiento."); offers = offers.filter(o => o.productId !== selectedOfferProd.id); offers.push({ id: Date.now(), productId: selectedOfferProd.id, name: selectedOfferProd.name, type, value: val, expiry }); localStorage.setItem('offers', JSON.stringify(offers)); alert("Oferta guardada."); document.getElementById('offer-prod-search').value = ''; renderOffers(); }
-function renderOffers() { const tbody = document.getElementById('offers-body'); tbody.innerHTML = ''; const today = new Date().setHours(0,0,0,0); offers = offers.filter(o => new Date(o.expiry).getTime() >= today); localStorage.setItem('offers', JSON.stringify(offers)); offers.forEach(o => { const prod = products.find(p => p.id === o.productId); let desc = o.type === 'percent' ? `-${o.value}%` : (o.type === 'amount' ? `-$${o.value}` : `Fijo: $${o.value}`); tbody.innerHTML += `<tr><td>${o.name}</td><td>${prod ? '$'+formatMoney(prod.price) : 'N/A'}</td><td style="color:var(--success); font-weight:bold;">${desc}</td><td>${new Date(o.expiry).toLocaleDateString()}</td><td><button class="btn-delete" onclick="deleteOffer(${o.id})"><i class="fas fa-trash"></i></button></td></tr>`; }); }
-function deleteOffer(id) { offers = offers.filter(o => o.id !== id); localStorage.setItem('offers', JSON.stringify(offers)); renderOffers(); }
+function saveOffer() { if (!selectedOfferProd) return notify("Seleccione producto."); const type = document.getElementById('offer-type').value, val = parseFloat(document.getElementById('offer-val').value) || 0, expiry = document.getElementById('offer-expiry').value; if (!expiry) return notify("Seleccione vencimiento."); offers = offers.filter(o => o.productId !== selectedOfferProd.id); offers.push({ id: Date.now(), productId: selectedOfferProd.id, name: selectedOfferProd.name, type, value: val, expiry }); DB.set('offers', offers); notify("Oferta guardada."); document.getElementById('offer-prod-search').value = ''; renderOffers(); }
+function renderOffers() { const tbody = document.getElementById('offers-body'); tbody.innerHTML = ''; const today = new Date().setHours(0,0,0,0); offers = offers.filter(o => new Date(o.expiry).getTime() >= today); DB.set('offers', offers); offers.forEach(o => { const prod = products.find(p => p.id === o.productId); let desc = o.type === 'percent' ? `-${o.value}%` : (o.type === 'amount' ? `-$${o.value}` : `Fijo: $${o.value}`); tbody.innerHTML += `<tr><td>${o.name}</td><td>${prod ? '$'+formatMoney(prod.price) : 'N/A'}</td><td style="color:var(--success); font-weight:bold;">${desc}</td><td>${new Date(o.expiry).toLocaleDateString()}</td><td><button class="btn-delete" onclick="deleteOffer(${o.id})"><i class="fas fa-trash"></i></button></td></tr>`; }); }
+function deleteOffer(id) { offers = offers.filter(o => o.id !== id); DB.set('offers', offers); renderOffers(); }
 
 let comboTempItems = [];
-function addProdToCombo() { const val = document.getElementById('combo-prod-search').value.toLowerCase(), qty = parseInt(document.getElementById('combo-prod-qty').value) || 1; const p = products.find(x => x.active !== false && (x.code.toLowerCase() === val || x.name.toLowerCase() === val)); if(!p) return alert("No encontrado."); const exist = comboTempItems.find(i => i.id === p.id); if(exist) exist.qty += qty; else comboTempItems.push({ id: p.id, code: p.code, name: p.name, cost: p.cost, price: p.price, qty: qty }); document.getElementById('combo-prod-search').value = ''; document.getElementById('combo-prod-qty').value = 1; renderComboTemp(); }
+function addProdToCombo() { const val = document.getElementById('combo-prod-search').value.toLowerCase(), qty = parseInt(document.getElementById('combo-prod-qty').value) || 1; const p = products.find(x => x.active !== false && (x.code.toLowerCase() === val || x.name.toLowerCase() === val)); if(!p) return notify("No encontrado."); const exist = comboTempItems.find(i => i.id === p.id); if(exist) exist.qty += qty; else comboTempItems.push({ id: p.id, code: p.code, name: p.name, cost: p.cost, price: p.price, qty: qty }); document.getElementById('combo-prod-search').value = ''; document.getElementById('combo-prod-qty').value = 1; renderComboTemp(); }
 function renderComboTemp() { const tbody = document.getElementById('combo-temp-body'); let tCost = 0, tNormal = 0; tbody.innerHTML = ''; comboTempItems.forEach((i, idx) => { let subP = i.price * i.qty; tCost += i.cost * i.qty; tNormal += subP; tbody.innerHTML += `<tr><td>${i.name}</td><td>${i.qty}</td><td>$${formatMoney(i.cost)}</td><td>$${formatMoney(i.price)}</td><td style="font-weight:bold;">$${formatMoney(subP)}</td><td><button class="btn-delete" onclick="comboTempItems.splice(${idx},1); renderComboTemp();"><i class="fas fa-times"></i></button></td></tr>`; }); document.getElementById('combo-total-cost').innerText = formatMoney(tCost); document.getElementById('combo-total-normal').innerText = formatMoney(tNormal); calcComboFinal(); }
 function calcComboFinal() { const tNormal = comboTempItems.reduce((acc, i) => acc + (i.price * i.qty), 0), type = document.getElementById('combo-price-type').value, val = parseFloat(document.getElementById('combo-price-val').value) || 0; const final = type === 'manual' ? val : tNormal * (1 - (val/100)); document.getElementById('combo-final-price').innerText = formatMoney(Math.max(final, 0)); return Math.max(final, 0); }
-function saveCombo() { const name = document.getElementById('combo-name').value.trim(), code = document.getElementById('combo-code').value, finalPrice = calcComboFinal(); if(!name || comboTempItems.length === 0 || finalPrice <= 0) return alert("Datos inválidos."); const factor = finalPrice / comboTempItems.reduce((acc, i) => acc + (i.price * i.qty), 0); let currentSum = 0; const itemsProporcional = comboTempItems.map((item, index) => { let propUnit = index === comboTempItems.length - 1 ? (finalPrice - currentSum) / item.qty : Math.round((item.price * factor) * 100) / 100; currentSum += (propUnit * item.qty); return { ...item, proportionalPrice: Math.round(propUnit*100)/100 }; }); combos.push({ id: Date.now(), isCombo: true, name, code, finalPrice, cost: comboTempItems.reduce((acc, i) => acc + (i.cost * i.qty), 0), items: itemsProporcional }); localStorage.setItem('combos', JSON.stringify(combos)); alert("Combo Guardado."); comboTempItems = []; document.getElementById('combo-name').value = ''; document.getElementById('combo-price-val').value = ''; document.getElementById('combo-price-type').value = 'manual'; renderComboTemp(); toggleDiscountView('combos'); }
+function saveCombo() { const name = document.getElementById('combo-name').value.trim(), code = document.getElementById('combo-code').value, finalPrice = calcComboFinal(); if(!name || comboTempItems.length === 0 || finalPrice <= 0) return notify("Datos inválidos."); const factor = finalPrice / comboTempItems.reduce((acc, i) => acc + (i.price * i.qty), 0); let currentSum = 0; const itemsProporcional = comboTempItems.map((item, index) => { let propUnit = index === comboTempItems.length - 1 ? (finalPrice - currentSum) / item.qty : Math.round((item.price * factor) * 100) / 100; currentSum += (propUnit * item.qty); return { ...item, proportionalPrice: Math.round(propUnit*100)/100 }; }); combos.push({ id: Date.now(), isCombo: true, name, code, finalPrice, cost: comboTempItems.reduce((acc, i) => acc + (i.cost * i.qty), 0), items: itemsProporcional }); DB.set('combos', combos); notify("Combo Guardado."); comboTempItems = []; document.getElementById('combo-name').value = ''; document.getElementById('combo-price-val').value = ''; document.getElementById('combo-price-type').value = 'manual'; renderComboTemp(); toggleDiscountView('combos'); }
 function renderCombos() { const tbody = document.getElementById('combos-body'); tbody.innerHTML = ''; combos.forEach(c => { tbody.innerHTML += `<tr><td>${c.code}</td><td><strong>${c.name}</strong></td><td>${c.items.length} prods</td><td style="color:#8e44ad; font-weight:bold;">$${formatMoney(c.finalPrice)}</td><td><button class="btn-delete" onclick="deleteCombo(${c.id})"><i class="fas fa-trash"></i></button></td></tr>`; }); }
-function deleteCombo(id) { if(confirm("¿Eliminar Combo?")) { combos = combos.filter(c => c.id !== id); localStorage.setItem('combos', JSON.stringify(combos)); renderCombos(); } }
+async function deleteCombo(id) { if(await confirmAction("¿Eliminar Combo?")) { combos = combos.filter(c => c.id !== id); DB.set('combos', combos); renderCombos(); } }
 
 // ==========================================
 // 5. MERMAS (PÉRDIDAS)
@@ -167,15 +189,15 @@ function deleteCombo(id) { if(confirm("¿Eliminar Combo?")) { combos = combos.fi
 let selectedLossProd = null;
 function autoFillLoss() { const val = document.getElementById('loss-prod-search').value.trim().toLowerCase(); selectedLossProd = products.find(p => p.active !== false && (p.code.toLowerCase() === val || p.name.toLowerCase() === val)); if (selectedLossProd) document.getElementById('loss-current-stock').value = selectedLossProd.stock; else document.getElementById('loss-current-stock').value = ''; }
 function registerLoss() {
-    if (!selectedLossProd) return alert("Seleccione producto."); const qty = parseInt(document.getElementById('loss-qty').value), reason = document.getElementById('loss-reason').value, obs = document.getElementById('loss-obs').value.trim();
-    if (isNaN(qty) || qty <= 0) return alert("Cantidad inválida."); if (qty > selectedLossProd.stock) return alert(`No hay stock suficiente.\nDisponible: ${selectedLossProd.stock}`);
+    if (!selectedLossProd) return notify("Seleccione producto."); const qty = parseInt(document.getElementById('loss-qty').value), reason = document.getElementById('loss-reason').value, obs = document.getElementById('loss-obs').value.trim();
+    if (isNaN(qty) || qty <= 0) return notify("Cantidad inválida."); if (qty > selectedLossProd.stock) return notify(`No hay stock suficiente.\nDisponible: ${selectedLossProd.stock}`);
     const prodIndex = products.findIndex(p => p.id === selectedLossProd.id);
     if(prodIndex !== -1) {
         products[prodIndex].stock -= qty; const lossValue = products[prodIndex].cost * qty;
         losses.push({ id: Date.now(), date: new Date().toLocaleString(), productId: products[prodIndex].id, productName: products[prodIndex].name, qty: qty, reason: reason, obs: obs, lossValue: lossValue });
-        localStorage.setItem('products', JSON.stringify(products)); localStorage.setItem('losses', JSON.stringify(losses));
+        DB.set('products', products); DB.set('losses', losses);
         if (typeof addLog === 'function') addLog('INVENTARIO', 'MERMA', `Merma ${qty}x ${products[prodIndex].name}`);
-        alert("Pérdida registrada."); document.getElementById('loss-prod-search').value = ''; document.getElementById('loss-current-stock').value = ''; document.getElementById('loss-qty').value = 1; document.getElementById('loss-obs').value = ''; selectedLossProd = null; renderLosses(); updateGlobalDatalist();
+        notify("Pérdida registrada."); document.getElementById('loss-prod-search').value = ''; document.getElementById('loss-current-stock').value = ''; document.getElementById('loss-qty').value = 1; document.getElementById('loss-obs').value = ''; selectedLossProd = null; renderLosses(); updateGlobalDatalist();
     }
 }
 function renderLosses() { const tbody = document.getElementById('losses-body'); if(!tbody) return; tbody.innerHTML = ''; if (losses.length === 0) { tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#999; padding:20px;">No hay mermas.</td></tr>`; return; } [...losses].reverse().forEach(l => { tbody.innerHTML += `<tr><td><small>${l.date}</small></td><td><strong>${l.productName}</strong><br><small style="color:#888">${l.obs || ''}</small></td><td style="text-align:center; font-weight:bold;">${l.qty}</td><td><span class="badge" style="background:#ffebee; border:1px solid #ffcdd2; color:#c62828;">${l.reason}</span></td><td style="text-align:right; color:var(--danger); font-weight:bold;">-$ ${formatMoney(l.lossValue)}</td></tr>`; }); }
@@ -183,37 +205,37 @@ function renderLosses() { const tbody = document.getElementById('losses-body'); 
 // ==========================================
 // 6. GESTOR DE RUBROS Y MARCAS
 // ==========================================
-function checkAndSaveCategory(type, val) { if (!val) return val; val = val.trim().toUpperCase(); if (type === 'rubro' && !masterRubros.includes(val)) { masterRubros.push(val); masterRubros.sort(); localStorage.setItem('masterRubros', JSON.stringify(masterRubros)); } else if (type === 'marca' && !masterMarcas.includes(val)) { masterMarcas.push(val); masterMarcas.sort(); localStorage.setItem('masterMarcas', JSON.stringify(masterMarcas)); } return val; }
+function checkAndSaveCategory(type, val) { if (!val) return val; val = val.trim().toUpperCase(); if (type === 'rubro' && !masterRubros.includes(val)) { masterRubros.push(val); masterRubros.sort(); DB.set('masterRubros', masterRubros); } else if (type === 'marca' && !masterMarcas.includes(val)) { masterMarcas.push(val); masterMarcas.sort(); DB.set('masterMarcas', masterMarcas); } return val; }
 function renderCategoryManagers() { const rList = document.getElementById('list-mgr-rubros'); const mList = document.getElementById('list-mgr-marcas'); rList.innerHTML = ''; mList.innerHTML = ''; masterRubros.forEach(r => rList.innerHTML += `<li style="padding:10px; border-bottom:1px solid #eee; display:flex; justify-content:space-between;"><span>${r}</span><button class="btn-delete" onclick="deleteCategory('rubro', '${r}')"><i class="fas fa-trash"></i></button></li>`); masterMarcas.forEach(m => mList.innerHTML += `<li style="padding:10px; border-bottom:1px solid #eee; display:flex; justify-content:space-between;"><span>${m}</span><button class="btn-delete" onclick="deleteCategory('marca', '${m}')"><i class="fas fa-trash"></i></button></li>`); }
 function addCategory(type) { const input = document.getElementById(`new-${type}-input`); if (!input.value.trim()) return; checkAndSaveCategory(type, input.value); input.value = ''; renderCategoryManagers(); updateFilterSelects(); updateCategoryDatalists(); }
-function deleteCategory(type, name) { const inUse = products.some(p => p.active !== false && p[type] === name); if (inUse) return alert(`En uso.`); if (confirm(`¿Eliminar ${name}?`)) { if (type === 'rubro') { masterRubros = masterRubros.filter(r => r !== name); localStorage.setItem('masterRubros', JSON.stringify(masterRubros)); } else { masterMarcas = masterMarcas.filter(m => m !== name); localStorage.setItem('masterMarcas', JSON.stringify(masterMarcas)); } renderCategoryManagers(); updateFilterSelects(); updateCategoryDatalists(); } }
+async function deleteCategory(type, name) { const inUse = products.some(p => p.active !== false && p[type] === name); if (inUse) return notify(`En uso.`); if (await confirmAction(`¿Eliminar ${name}?`)) { if (type === 'rubro') { masterRubros = masterRubros.filter(r => r !== name); DB.set('masterRubros', masterRubros); } else { masterMarcas = masterMarcas.filter(m => m !== name); DB.set('masterMarcas', masterMarcas); } renderCategoryManagers(); updateFilterSelects(); updateCategoryDatalists(); } }
 
 // ==========================================
 // 7. GENERADOR AUTOMÁTICO DE CÓDIGOS
 // ==========================================
 function getPrefixForRubro(rubro) {
     if (!rubro) return "GEN";
-    let prefixes = JSON.parse(localStorage.getItem('rubroPrefixes')) || {};
+    let prefixes = DB.get('rubroPrefixes', {});
     let rUpper = rubro.toUpperCase().trim();
     if (prefixes[rUpper]) return prefixes[rUpper];
     let auto = rUpper.replace(/[AEIOU]/g, '').substring(0, 3).padEnd(3, 'X');
     if (auto === 'XXX') auto = rUpper.substring(0, 3).padEnd(3, 'X');
-    prefixes[rUpper] = auto; localStorage.setItem('rubroPrefixes', JSON.stringify(prefixes)); return auto;
+    prefixes[rUpper] = auto; DB.set('rubroPrefixes', prefixes); return auto;
 }
 
 function generateProductCode(rubro) {
     let prefix = getPrefixForRubro(rubro);
-    let config = JSON.parse(localStorage.getItem('config')) || {};
+    let config = DB.get('config', {});
     if (!config.codeCounters) config.codeCounters = {};
     if (!config.codeCounters[prefix]) config.codeCounters[prefix] = 0;
-    let productsDb = JSON.parse(localStorage.getItem('products')) || [];
+    let productsDb = DB.get('products', []);
     let newCode = ""; let isUnique = false;
     while (!isUnique) {
         config.codeCounters[prefix]++;
         newCode = `${prefix}-${String(config.codeCounters[prefix]).padStart(4, '0')}`;
         isUnique = !productsDb.some(p => p.code === newCode);
     }
-    localStorage.setItem('config', JSON.stringify(config));
+    DB.set('config', config);
     return newCode;
 }
 
@@ -232,7 +254,7 @@ function addToPrintQueue(product, qtyToAdd) {
     const exist = labelPrintList.find(i => i.id === product.id);
     if(exist) exist.qty += qtyToAdd;
     else labelPrintList.push({ id: product.id, code: product.code, name: product.name, price: product.price, qty: qtyToAdd });
-    localStorage.setItem('printQueue', JSON.stringify(labelPrintList));
+    DB.set('printQueue', labelPrintList);
     renderLabelList();
 }
 
@@ -240,7 +262,7 @@ function addProdToLabelList() {
     const val = document.getElementById('label-prod-search').value.toLowerCase();
     const qty = parseInt(document.getElementById('label-qty').value) || 1;
     const p = products.find(x => x.active !== false && (x.code.toLowerCase() === val || x.name.toLowerCase() === val));
-    if(!p) return alert("Producto no encontrado.");
+    if(!p) return notify("Producto no encontrado.");
     addToPrintQueue(p, qty);
     document.getElementById('label-prod-search').value = '';
     document.getElementById('label-qty').value = 1;
@@ -250,14 +272,14 @@ function updateLabelQty(index, delta) {
     const newVal = labelPrintList[index].qty + delta;
     if (newVal <= 0) labelPrintList.splice(index, 1);
     else labelPrintList[index].qty = newVal;
-    localStorage.setItem('printQueue', JSON.stringify(labelPrintList)); renderLabelList();
+    DB.set('printQueue', labelPrintList); renderLabelList();
 }
 
 function updateLabelQtyManual(index, inputObj) {
     const newVal = parseInt(inputObj.value);
     if (isNaN(newVal) || newVal <= 0) labelPrintList.splice(index, 1);
     else labelPrintList[index].qty = newVal;
-    localStorage.setItem('printQueue', JSON.stringify(labelPrintList)); renderLabelList();
+    DB.set('printQueue', labelPrintList); renderLabelList();
 }
 
 function renderLabelList() {
@@ -272,16 +294,16 @@ function renderLabelList() {
                 <input type="number" value="${item.qty}" style="width:60px; text-align:center; padding:5px; margin:0 5px;" onchange="updateLabelQtyManual(${index}, this)">
                 <button class="btn-secondary" style="padding:2px 8px; font-size:0.8rem;" onclick="updateLabelQty(${index}, 1)">+</button>
             </td>
-            <td style="text-align:center;"><button class="btn-delete" onclick="labelPrintList.splice(${index},1); localStorage.setItem('printQueue', JSON.stringify(labelPrintList)); renderLabelList();"><i class="fas fa-trash"></i></button></td>
+            <td style="text-align:center;"><button class="btn-delete" onclick="labelPrintList.splice(${index},1); DB.set('printQueue', labelPrintList); renderLabelList();"><i class="fas fa-trash"></i></button></td>
         </tr>`; 
     });
     const counterEl = document.getElementById('label-total-count'); if(counterEl) counterEl.innerText = totalLabels;
 }
 
-function clearLabelList() { if(confirm("¿Vaciar toda la cola de impresión?")) { labelPrintList = []; localStorage.setItem('printQueue', JSON.stringify(labelPrintList)); renderLabelList(); } }
+async function clearLabelList() { if(await confirmAction("¿Vaciar toda la cola de impresión?")) { labelPrintList = []; DB.set('printQueue', labelPrintList); renderLabelList(); } }
 
 function printLabels() {
-    if(labelPrintList.length === 0) return alert("Agregue productos a la cola de impresión.");
+    if(labelPrintList.length === 0) return notify("Agregue productos a la cola de impresión.");
     
     const showPrice = document.getElementById('label-show-price').checked;
     const printArea = document.getElementById('print-area'); 
@@ -327,22 +349,23 @@ function printLabels() {
 // ==========================================
 function prepareInventorySelectors() {
     const provSelect = document.getElementById('prod-prov-select'), partSelect = document.getElementById('pay-inv-partner-select');
-    const suppliers = JSON.parse(localStorage.getItem('suppliers')) || [], partners = JSON.parse(localStorage.getItem('partners')) || [];
+    const suppliers = DB.get('suppliers', []), partners = DB.get('partners', []);
     if (provSelect) provSelect.innerHTML = '<option value="">-- Sin Proveedor --</option>' + suppliers.filter(s => s.active !== false).map(s => `<option value="${s.id}">${s.name}</option>`).join('');
     if (partSelect) partSelect.innerHTML = '<option value="">-- Seleccionar Socio --</option>' + partners.filter(p => p.active !== false).map(p => `<option value="${p.id}">${p.name}</option>`).join('');
 }
 function calcNewProdTotal() { const cost = parseFloat(document.getElementById('prod-cost').value) || 0, qty = parseFloat(document.getElementById('prod-stock-init').value) || 0; const display = document.getElementById('prod-total-buy'); if (display) display.value = formatMoney(cost * qty); }
 
-function createPurchaseRecord(data) {
+async function createPurchaseRecord(data) {
     const { prodName, qty, total, payments, ids } = data; const isoDate = new Date().toISOString();
-    if (payments.cash > 0 || payments.bank > 0) { if (typeof updateBalancesStorage === 'function') updateBalancesStorage(-payments.cash, -payments.bank); }
-    if (payments.ctacte > 0 && ids.provider) { let suppliers = JSON.parse(localStorage.getItem('suppliers')) || []; const idx = suppliers.findIndex(s => s.id == ids.provider); if (idx !== -1) { suppliers[idx].balance = (parseFloat(suppliers[idx].balance) || 0) + payments.ctacte; if (!suppliers[idx].history) suppliers[idx].history = []; suppliers[idx].history.push({ date: new Date().toLocaleString(), type: 'COMPRA', amount: payments.ctacte, note: `Compra Stock: ${prodName}` }); localStorage.setItem('suppliers', JSON.stringify(suppliers)); } }
-    if (payments.partner > 0 && ids.partner) { let partners = JSON.parse(localStorage.getItem('partners')) || []; const idx = partners.findIndex(p => p.id == ids.partner); if (idx !== -1) { partners[idx].totalContribution = (parseFloat(partners[idx].totalContribution) || 0) + payments.partner; localStorage.setItem('partners', JSON.stringify(partners)); } }
-    let purchases = JSON.parse(localStorage.getItem('purchases')) || []; purchases.push({ id: Date.now(), timestamp: isoDate, product: prodName, quantity: qty, totalCost: total, funding: { cash: payments.cash, bank: payments.bank, supplierCredit: payments.ctacte, partnerInvestment: payments.partner }, providerId: ids.provider || null, partnerId: ids.partner || null }); localStorage.setItem('purchases', JSON.stringify(purchases)); return true;
+    if (payments.cash > 0 || payments.bank > 0) { if (typeof updateBalancesStorage === 'function') await updateBalancesStorage(-payments.cash, -payments.bank); }
+    if (payments.ctacte > 0 && ids.provider) { let suppliers = DB.get('suppliers', []); const idx = suppliers.findIndex(s => s.id == ids.provider); if (idx !== -1) { suppliers[idx].balance = (parseFloat(suppliers[idx].balance) || 0) + payments.ctacte; if (!suppliers[idx].history) suppliers[idx].history = []; suppliers[idx].history.push({ date: new Date().toLocaleString(), type: 'COMPRA', amount: payments.ctacte, note: `Compra Stock: ${prodName}` }); await DB.set('suppliers', suppliers); } }
+    if (payments.partner > 0 && ids.partner) { let partners = DB.get('partners', []); const idx = partners.findIndex(p => p.id == ids.partner); if (idx !== -1) { partners[idx].totalContribution = (parseFloat(partners[idx].totalContribution) || 0) + payments.partner; await DB.set('partners', partners); } }
+    let purchases = DB.get('purchases', []); purchases.push({ id: Date.now(), timestamp: isoDate, product: prodName, quantity: qty, totalCost: total, funding: { cash: payments.cash, bank: payments.bank, supplierCredit: payments.ctacte, partnerInvestment: payments.partner }, providerId: ids.provider || null, partnerId: ids.partner || null }); await DB.set('purchases', purchases); return true;
 }
 
-document.getElementById('product-form')?.addEventListener('submit', function(e) {
+document.getElementById('product-form')?.addEventListener('submit', async function(e) {
     e.preventDefault();
+    try { await DB.ensureMany(['products','config','rubroPrefixes','masterRubros','masterMarcas','suppliers','partners','purchases','balances']); } catch(err) { return notify("Error de conexión con la base de datos."); }
     const name = document.getElementById('prod-name').value;
     const rubro = checkAndSaveCategory('rubro', document.getElementById('prod-rubro').value);
     const marca = checkAndSaveCategory('marca', document.getElementById('prod-marca').value);
@@ -357,22 +380,22 @@ document.getElementById('product-form')?.addEventListener('submit', function(e) 
 
     if (totalReal > 0) {
         const sumaPagos = Math.round((pCash + pBank + pCtaCte + pPartner) * 100) / 100;
-        if (Math.abs(sumaPagos - totalReal) > 0.1) return alert(`Error: Pagos no coinciden con Costo.`);
-        if (pCtaCte > 0 && !provId) return alert("Seleccione proveedor.");
-        if (pPartner > 0 && !partId) return alert("Seleccione socio.");
-        const success = createPurchaseRecord({ prodName: name, qty: qty, total: totalReal, payments: { cash: pCash, bank: pBank, ctacte: pCtaCte, partner: pPartner }, ids: { provider: provId, partner: partId } });
-        if (!success) return; 
+        if (Math.abs(sumaPagos - totalReal) > 0.1) return notify(`Error: Pagos no coinciden con Costo.`);
+        if (pCtaCte > 0 && !provId) return notify("Seleccione proveedor.");
+        if (pPartner > 0 && !partId) return notify("Seleccione socio.");
+        const success = await createPurchaseRecord({ prodName: name, qty: qty, total: totalReal, payments: { cash: pCash, bank: pBank, ctacte: pCtaCte, partner: pPartner }, ids: { provider: provId, partner: partId } });
+        if (!success) return;
     }
 
     const productObj = { id: Date.now(), name, code, rubro, marca, cost, price, stock: qty, active: true };
     products.push(productObj);
-    localStorage.setItem('products', JSON.stringify(products));
+    DB.set('products', products);
     
     if (typeof addLog === 'function') addLog('INVENTARIO', 'CREACION', `Producto: ${name} (${code})`);
     
     if (typeof addToPrintQueue === 'function') addToPrintQueue(productObj, qty > 0 ? qty : 1);
 
-    alert(`¡Producto creado!\nCódigo Asignado: ${code}`); 
+    notify(`¡Producto creado!\nCódigo Asignado: ${code}`); 
     this.reset(); showSubTab('listado'); updateGlobalDatalist();
 });
 
@@ -394,14 +417,14 @@ document.getElementById('edit-product-form')?.addEventListener('submit', functio
         products[index].name = document.getElementById('edit-prod-name').value; products[index].code = document.getElementById('edit-prod-code').value;
         products[index].rubro = checkAndSaveCategory('rubro', document.getElementById('edit-prod-rubro').value); products[index].marca = checkAndSaveCategory('marca', document.getElementById('edit-prod-marca').value);
         products[index].cost = parseFloat(document.getElementById('edit-prod-cost').value) || 0; products[index].price = parseFloat(document.getElementById('edit-prod-price').value) || 0;
-        localStorage.setItem('products', JSON.stringify(products));
-        alert("¡Cambios guardados!"); showSubTab('listado'); updateGlobalDatalist();
+        DB.set('products', products);
+        notify("¡Cambios guardados!"); showSubTab('listado'); updateGlobalDatalist();
     }
 });
 
-function deleteProduct(id) {
-    if (confirm("¿Eliminar este producto?")) {
+async function deleteProduct(id) {
+    if (await confirmAction("¿Eliminar este producto?")) {
         const idx = products.findIndex(p => p.id === id);
-        if (idx !== -1) { products[idx].active = false; localStorage.setItem('products', JSON.stringify(products)); renderInventory(); updateGlobalDatalist(); }
+        if (idx !== -1) { products[idx].active = false; DB.set('products', products); renderInventory(); updateGlobalDatalist(); }
     }
 }
