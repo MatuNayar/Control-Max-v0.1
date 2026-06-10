@@ -16,17 +16,10 @@
 
 // ============================================================
 //  CONFIGURACIÓN DE FIREBASE
+//  Los valores reales viven en js/firebase-config.js (NO versionado, ver
+//  .gitignore). Usá js/firebase-config.example.js como plantilla.
 // ============================================================
-const firebaseConfig = {
-  apiKey: "AIzaSyARgAWVM9VPUx4bAyonH37K5jQBmOvEq4M",
-  authDomain: "control-max-55658.firebaseapp.com",
-  databaseURL: "https://control-max-55658-default-rtdb.firebaseio.com",
-  projectId: "control-max-55658",
-  storageBucket: "control-max-55658.firebasestorage.app",
-  messagingSenderId: "838894865460",
-  appId: "1:838894865460:web:2a3fdbb9db1eee6c5bce61",
-  measurementId: "G-1L75YVWELV",
-};
+const firebaseConfig = (typeof window !== 'undefined' && window.FIREBASE_CONFIG) || {};
 
 // NOTA DE SEGURIDAD: en "modo de prueba" la base queda abierta a internet y la
 // app guarda contraseñas en texto plano. Antes de exponer datos reales conviene
@@ -172,6 +165,12 @@ const DB = (function () {
   }
 
   function init() {
+    if (!firebaseConfig.apiKey || !firebaseConfig.databaseURL) {
+      return Promise.reject(new Error(
+        "Falta la configuración de Firebase. Copiá js/firebase-config.example.js " +
+        "a js/firebase-config.js y completá tus credenciales."
+      ));
+    }
     firebase.initializeApp(firebaseConfig);
     database = firebase.database();
     return Promise.resolve();

@@ -1,0 +1,11 @@
+# Configuración privada de Firebase (credenciales reales)
+js/firebase-config.js
+
+# Variables de entorno
+.env
+.env.local
+.env.*.local
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
